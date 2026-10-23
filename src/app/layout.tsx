@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "TrustVault — Secure Document Sharing",
   description:
-    "Security-first document sharing platform with strict authorization, tamper-evident audit trails, and instant revocation.",
+    "Zero-trust document sharing platform with strict server authorization architecture and defense-in-depth security controls.",
 };
 
 export default function RootLayout({
@@ -27,35 +27,47 @@ export default function RootLayout({
                 TrustVault
               </span>
               <span className="ml-2 text-xs font-mono uppercase px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">
-                Phase 1 Foundation
+                Phase 3 Core
               </span>
             </div>
 
-            <nav className="flex items-center gap-6 text-sm font-medium">
+            <nav className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-medium">
               <Link
                 href="/"
                 className="text-cyan-400 hover:text-cyan-300 transition-colors"
               >
                 Home
               </Link>
+              <Link
+                href="/account"
+                className="text-slate-300 hover:text-white transition-colors"
+              >
+                Account
+              </Link>
               <span
-                className="text-slate-500 cursor-not-allowed flex items-center gap-1.5"
-                title="Documents placeholder (Unimplemented in Phase 1)"
+                className="text-slate-500 cursor-not-allowed hidden sm:inline-flex items-center gap-1.5"
+                title="Documents placeholder (Scheduled for Phase 5)"
               >
                 Documents
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-slate-800/80 text-slate-400 rounded">
-                  Pending
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-slate-800/80 text-slate-400 rounded">
+                  Pending Phase 5
                 </span>
               </span>
               <span
-                className="text-slate-500 cursor-not-allowed flex items-center gap-1.5"
-                title="Activity log placeholder (Unimplemented in Phase 1)"
+                className="text-slate-500 cursor-not-allowed hidden sm:inline-flex items-center gap-1.5"
+                title="Activity log placeholder (Scheduled for Phase 4)"
               >
                 Activity
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-slate-800/80 text-slate-400 rounded">
-                  Pending
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-slate-800/80 text-slate-400 rounded">
+                  Pending Phase 4
                 </span>
               </span>
+              <Link
+                href="/login"
+                className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 hover:text-white transition-all"
+              >
+                Sign In
+              </Link>
             </nav>
           </div>
         </header>
@@ -70,7 +82,7 @@ export default function RootLayout({
           <div className="max-w-6xl mx-auto px-4">
             <p>TrustVault — Security is the product; CRUD is secondary.</p>
             <p className="mt-1 font-mono text-[11px] text-slate-600">
-              Current state: Phase 1 Application Foundation. Secure storage, auth, and audit modules are deliberately not built.
+              Current state: Phase 3 Centralized Authorization Core & Planned Architecture. Live document routes, private storage, and hash chains in development.
             </p>
           </div>
         </footer>

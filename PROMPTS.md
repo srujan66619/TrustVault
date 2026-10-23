@@ -212,6 +212,102 @@ This document tracks all user prompts, assistant outputs, architectural critique
 * **Real Git Commit Hash / Link**:
   Commit: [`9b7bfec`](https://github.com/srujan66619/TrustVault/commit/9b7bfec) — `feat(phase-2): implement defense-in-depth database schema, RLS, triggers, and verification suite`
 
+---
+
+### Entry 8: 2026-10-23 — Phase 3: Authentication & Centralized Server-Side Authorization Core
+
+* **What was asked**:
+  Begin Phase 3 after Phase 2 verification against Supabase:
+  1. Configure Supabase Auth safely for Next.js App Router (Server Components & Server Actions).
+  2. Implement server-side session helpers that obtain the authenticated user via `supabase.auth.getUser()` on every protected request.
+  3. Never trust client claims: read current `profiles.status` and `profiles.role` directly from the database for every decision.
+  4. Create the single server-only authorization decision point: `src/lib/authorization/authorize.ts` supporting `READ`, `DOWNLOAD`, `EDIT`, `DELETE`, `GRANT`, `REVOKE`, `VIEW_AUDIT`.
+  5. Enforce: deny by default, disabled users denied, owners have full access, READ grantees restricted to read/download, EDIT grantees restricted to read/download/edit, grantees denied grant/revoke/delete/view_audit, unrelated users denied, and admin role explicitly scoped (zero-trust).
+  6. Return structured internal result and prevent document existence enumeration (`NOT_FOUND_OR_DENIED`).
+  7. Add privileged server database client with `'server-only'` guard and secret isolation.
+  8. Build a basic sign-in, sign-out, and protected account placeholder flow with Next.js PPR compatibility.
+  9. Add automated test suite with mutation-resistance verification and live Supabase RPC testing.
+
+* **What was produced**:
+  - `src/lib/supabase/admin.ts`: Privileged server-only Supabase client guarded with `import 'server-only'` and `SUPABASE_SERVICE_ROLE_KEY` secret isolation.
+  - `src/lib/auth/session.ts`: Server-only session helper with `getCurrentUser()` and `requireAuth()`, verifying tokens cryptographically via `auth.getUser()` and fetching live database profile metadata (`role`, `status`).
+  - `src/lib/authorization/authorize.ts`: Single centralized server-side authorization choke-point implementing the full 7-action matrix, deny-by-default, zero-trust admin scoping, and anti-enumeration.
+  - `supabase/migrations/20261023000000_authorization_context_function.sql`: PostgreSQL `SECURITY DEFINER` RPC `get_authorization_context` with `search_path = public, pg_temp` and PL/pgSQL `FOUND` row verification.
+  - `src/app/login/page.tsx` & `src/app/login/actions.ts`: Sign-in, sign-up, and sign-out flow with React 19 / Next.js 16 Suspense boundaries.
+  - `src/app/account/page.tsx`: Protected account overview placeholder verifying live session and database role/status.
+  - `tests/authorization.test.ts`: Automated Vitest test suite executing 16 test cases covering all 8 actor scenarios, parameter validation, live connected Supabase RPC verification, and mutation-resistance evidence.
+  - `README.md` & `THREATS.md`: Comprehensive updates including authorization matrix, threat mitigations, and zero-trust admin architecture.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push.*
+
+---
+
+### Entry 9: 2026-10-23 — Visual-Only UI Phase: 3D Animated Security Landing Experience
+
+* **What was asked**:
+  Create a modern, dark, 3D animated security-dashboard landing experience for TrustVault:
+  1. Presentation only: zero changes to Supabase schema, migrations, RLS, authentication, authorization, storage, audit code, or secrets.
+  2. Dark cybersecurity aesthetic: deep navy/black, electric cyan/violet highlights, subtle glow effects.
+  3. Interactive procedural 3D vault cube in the hero section using Three.js with mouse response and `prefers-reduced-motion` compliance.
+  4. Pure CSS 3D fallback (`VaultFallback.tsx`) ensuring high-quality rendering without WebGL or JavaScript animations.
+  5. Updated Hero: "TrustVault", headline “Document security that holds.”, statement “Access is verified at every request. Permissions can be revoked immediately.”, and placeholder action buttons.
+  6. Three-card security section: Current access verification, Immediate revocation, Tamper-evident activity trail.
+  7. "Built for controlled sharing" section highlighting zero-trust boundaries and anti-enumeration.
+  8. Responsive navigation with explicit pending phase badges for unbuilt areas.
+  9. Run lint, tests, and production build, visually inspect in browser, and provide commit instructions.
+
+* **What was produced**:
+  - `src/components/ui/VaultCanvas.tsx`: Client-only Three.js procedural 3D vault cube with glassmorphic outer frame, rotating inner cryptographic core, orbiting security anchors, and lightweight drifting particle field. Damped pointer tilt and `prefers-reduced-motion` detection.
+  - `src/components/ui/VaultFallback.tsx`: Pure CSS 3D animated vault cube with glowing borders and containment status for headless/non-WebGL environments.
+  - `src/components/ui/VaultScene.tsx`: Client wrapper with dynamic import (`ssr: false`) and loading fallback.
+  - `src/app/page.tsx`: Polished dark cybersecurity landing page with hero, three-card security architecture, and controlled sharing section.
+  - `src/app/layout.tsx`: Responsive navigation preserving Home, Account, Sign In, and clearly designated Documents and Activity placeholders.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push.*
+
+---
+
+### Entry 10: 2026-10-23 — Pre-Commit Security Copy Revision & Accuracy Alignment
+
+* **What was asked**:
+  Revise the 3D landing page's security copy before commit:
+  1. The current UI must not present incomplete features as operational security guarantees.
+  2. Replace or clearly mark as planned any claim about:
+     - “Access is verified at every request”
+     - “Permissions can be revoked immediately”
+     - “Tamper-evident activity trail”
+     - “zero token-expiry window”
+     - audit immutability or hash-chain protection
+     - IDOR protection and randomized storage object keys
+  3. Only make a claim if it is implemented, tested, and currently used by a live route. Otherwise use wording such as “Security controls being built,” “Planned architecture,” or “Coming in a later phase.”
+  4. Keep visual placeholder labels clear and accessible.
+  5. Verify CSS fallback disables its rotation under `prefers-reduced-motion: reduce` (do not only disable motion in the WebGL canvas).
+  6. Update `PROMPTS.md` truthfully with this correction, rerun test, lint, and build, and provide actual results without modifying Supabase, authorization, or audit code.
+
+* **What was produced & verified**:
+  - `src/app/page.tsx`:
+    - Hero badge changed from `"Zero-Trust Security Core Active"` to `"TrustVault • Security Controls Being Built"`.
+    - Hero copy updated to explicitly declare: `"Planned architecture: Access will be verified at every request, and permissions will be revocable immediately. The foundation is engineered with PostgreSQL Row-Level Security and a centralized server-side authorization core; live document routes and private storage access are coming in a later phase."`
+    - Three-card section renamed to `"Security Controls Being Built"` under `"Target Security Specifications"`.
+    - Card 1: Replaced operational guarantee with `"Access verification architecture"` labeled `"Planned Architecture • Coming in a Later Phase"`, detailing that the server-side `authorize()` core is unit-tested, while live document streaming endpoints are planned.
+    - Card 2: Replaced operational claim with `"Immediate revocation design"` labeled `"Target Security Model • In Development"`, noting that `authorize()` tests reject `DISABLED` accounts, while live endpoint revocation is scheduled for Phase 4.
+    - Card 3: Replaced claim with `"Audit trail & integrity model"` labeled `"Security Controls Being Built"`, clarifying that PostgreSQL append-only triggers prevent row mutation and truncates in the database, while cryptographic rolling hash chains and automatic route-level logging are coming in a later phase.
+    - Controlled sharing section updated to `"Built for controlled sharing (Planned)"` under `"Planned Architecture • Specifications"`, clarifying that granular capabilities (`READ`, `DOWNLOAD`, `EDIT`), zero-trust admin boundaries, IDOR defenses, and randomized UUID storage keys are target architecture specifications to be delivered in Phases 4 and 5.
+    - Roadmap disclosure box updated to explicitly contrast live operational capabilities (`/login`, `/account`, profiles RLS, `authorize()` unit tests) with in-development features.
+  - `src/app/layout.tsx`:
+    - Updated metadata description and footer status line to reflect Phase 3 authorization core and planned architecture status.
+  - `src/components/ui/VaultFallback.tsx`:
+    - Verified multi-layer reduced motion enforcement: React `window.matchMedia('(prefers-reduced-motion: reduce)')` state listener, Tailwind CSS `motion-reduce:animate-none`, and an inline `<style jsx>` block with `@media (prefers-reduced-motion: reduce) { .vault-cube-spin { animation: none !important; transform: rotateX(15deg) rotateY(25deg) !important; } }`.
+  - Zero changes made to Supabase schema, migrations, RLS, authentication, authorization, or audit code.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push.*
+
+
+
+
 
 
 
