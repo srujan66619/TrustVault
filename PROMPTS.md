@@ -210,7 +210,8 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - **Verification Suite Execution**: Executed `supabase/verify_schema.sql` live against the database in a single transaction. All **23 out of 23 security verification tests PASSED (100% green)**. Transaction safely rolled back with zero leftover rows or temporary tables.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit.*
+  Commit: [`9b7bfec`](https://github.com/srujan66619/TrustVault/commit/9b7bfec) — `feat(phase-2): implement defense-in-depth database schema, RLS, triggers, and verification suite`
+
 
 
 
