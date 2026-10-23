@@ -199,6 +199,21 @@ Reviewers can execute these 5 rapid tests to evaluate TrustVault's security:
 > [!NOTE]
 > **Live Verification Status**: Verified live on the active Supabase project (`mgqrzzbyzuyygufcpaun`, PostgreSQL 17.11) via the Supabase MCP. All 23 security verification checks in `supabase/verify_schema.sql` executed in a single transaction and **PASSED (100% green)**, with zero persistent test data left behind.
 
+---
+
+## 7. Phase 3: Authentication & Centralized Server-Side Authorization Threat Analysis
+
+| Threat ID | Phase 3 Threat | Actual Mitigation in Phase 3 | Status / Verification Method | Unresolved / Accepted Risk |
+| :--- | :--- | :--- | :--- | :--- |
+| **P3-01** | **Stale Claims in JWT**: User whose role or status changed in the database continues accessing resources using stale JWT claims. | `getCurrentUser()` and `authorize()` **never** trust JWT metadata or custom claims. Every authorization decision looks up live `profiles.role` and `profiles.status` directly from PostgreSQL. | Verified in `tests/authorization.test.ts` (mutating status immediately denies access). | Database query overhead per authorization decision (acceptable cost for strict freshness). |
+| **P3-02** | **Disabled-User Session Persistence**: Suspended/disabled user with an unexpired session cookie continues executing requests. | `requireAuth()` and `authorize()` check `profiles.status === 'ACTIVE'`. If `DISABLED`, immediately rejects with `ACCOUNT_DISABLED`. | Verified in `tests/authorization.test.ts` (Test 5: disabled user denied all actions). | Active WebSocket/Realtime subscriptions (if added in future phases) must also listen for status revocation events. |
+| **P3-03** | **Client-Side Role & Parameter Tampering**: Attacker sends `{"role": "ADMIN"}` or passes spoofed `userId` in query parameters. | `userId` is obtained strictly from the verified session via `supabase.auth.getUser()`. Client-provided roles and IDs are completely ignored. Parameter validation regex enforces valid UUID structure. | Verified in `tests/authorization.test.ts` (Test 1: malformed inputs rejected). | None. Client input is untrusted by design. |
+| **P3-04** | **Insecure Direct Object Reference (IDOR)**: Attacker passes arbitrary `documentId` UUIDs to read, edit, or delete other users' documents. | Centralized choke-point `authorize(userId, documentId, action)` is mandatory. Evaluates ownership and explicit grants. Unrelated users are denied. | Verified in `tests/authorization.test.ts` (Test 6: unrelated user denied). | Downstream Route Handlers (Phase 4/5) must strictly call `authorize()` before invoking storage or database writes. |
+| **P3-05** | **Document Existence Enumeration**: Attacker probes UUIDs to determine which documents exist based on differing error codes (404 vs 403). | `authorize()` returns an identical `NOT_FOUND_OR_DENIED` result for nonexistent documents, soft-deleted documents, and unauthorized access attempts. | Verified in `tests/authorization.test.ts` (Tests 6, 7, 8 all return identical `NOT_FOUND_OR_DENIED`). | Timing attacks: database query duration could theoretically reveal nonexistence vs existence (difference is negligible at normal indexing). |
+| **P3-06** | **Rogue Administrator Document Snooping**: Privileged administrator abuses `ADMIN` role to inspect or download confidential user files without authorization. | Zero-trust admin scoping: `ADMIN` role grants `VIEW_AUDIT` for compliance auditing, but does **not** grant automatic read/download/edit bypass to private documents without explicit grant. | Verified in `tests/authorization.test.ts` (Test 9: Admin denied private document content). | Database superuser (`postgres`) with direct database connection has raw access (out of application threat model). |
+| **P3-07** | **Service Role Key Client Leakage**: Privileged Supabase client accidentally bundled into browser JavaScript. | `src/lib/supabase/admin.ts` imports `'server-only'`, throwing a build-time compiler error if imported in client components. Variable `SUPABASE_SERVICE_ROLE_KEY` is never prefixed with `NEXT_PUBLIC_`. | Verified by Next.js build compilation. | Developer must never commit `.env.local` containing the real service role key. |
+
+
 
 
 

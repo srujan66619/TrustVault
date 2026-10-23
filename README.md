@@ -103,9 +103,38 @@ Postgres RLS provides strict database-level defense in depth. However, database 
 
 ---
 
-## What Is Explicitly Not Built Yet (Phase 2 Status)
-* ❌ **User Authentication Flow UI**: Login, signup, password reset forms.
-* ❌ **Central Server Authorization**: `authorize(userId, docId, action)` Next.js helper module (Phase 3).
-* ❌ **Document Upload / Download Routes**: Streaming route handlers and storage bucket configuration.
+## Authentication & Authorization Core (Phase 3 Baseline)
+
+### 1. Secure Server-Side Authentication
+* **Server-Only Guards**: `src/lib/auth/session.ts` and `src/lib/supabase/admin.ts` import `'server-only'`, guaranteeing at compile time that session inspection and administrative logic cannot be bundled into client-side JavaScript.
+* **Cryptographic Token Verification**: Session validation invokes `supabase.auth.getUser()`, which validates the user's JWT with the remote Supabase Auth server on every protected request. Local unvalidated session reads (`getSession()`) are strictly forbidden.
+* **Live Database Profile Validation**: Client-submitted inputs, URL query parameters, local storage, and JWT `user_metadata` are **never trusted** for security decisions. `getCurrentUser()` and `requireAuth()` read the user's live `role` and `status` directly from `public.profiles`.
+* **Instant Session Revocation**: When a user's `profiles.status` is updated to `DISABLED`, access is immediately revoked at the server level regardless of whether an unexpired JWT exists.
+
+### 2. Centralized Authorization Core (`src/lib/authorization/authorize.ts`)
+* **Single Choke-Point**: `authorize(userId, documentId, action)` is the **sole decision point** for all document access.
+* **Deny-by-Default**: Any unhandled branch, missing grant, disabled status, or malformed parameter evaluates to `allowed: false`.
+* **Zero-Trust Admin Model**: `ADMIN` access is explicitly scoped to compliance auditing (`VIEW_AUDIT`). Administrators are **not** granted universal bypass to private user documents (`READ`, `DOWNLOAD`, `EDIT`, `DELETE`), preventing administrative surveillance.
+* **Anti-Enumeration / IDOR Protection**: Unauthorized callers and queries for soft-deleted or nonexistent documents receive an identical `NOT_FOUND_OR_DENIED` response, preventing attackers from mapping document UUIDs.
+
+### 3. Centralized Authorization Decision Matrix
+
+| Role / Actor | Account Status | Document Status | `READ` | `DOWNLOAD` | `EDIT` | `DELETE` | `GRANT` | `REVOKE` | `VIEW_AUDIT` | Denial Reason |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Owner** | `ACTIVE` | Active | **ALLOW** | **ALLOW** | **ALLOW** | **ALLOW** | **ALLOW** | **ALLOW** | **ALLOW** | — |
+| **EDIT Grantee** | `ACTIVE` | Active | **ALLOW** | **ALLOW** | **ALLOW** | **DENY** | **DENY** | **DENY** | **DENY** | `UNAUTHORIZED_ACTION` |
+| **READ Grantee** | `ACTIVE` | Active | **ALLOW** | **ALLOW** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | `UNAUTHORIZED_ACTION` |
+| **Unrelated User** | `ACTIVE` | Active | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | `NOT_FOUND_OR_DENIED` |
+| **Admin (Non-Owner)** | `ACTIVE` | Active | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **ALLOW** | `NOT_FOUND_OR_DENIED` |
+| **Any User** | `DISABLED` | Any | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | `ACCOUNT_DISABLED` |
+| **Any User** | `ACTIVE` | Soft-Deleted | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | `NOT_FOUND_OR_DENIED` |
+| **Any User** | `ACTIVE` | Nonexistent | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | `NOT_FOUND_OR_DENIED` |
+
+---
+
+## What Is Explicitly Not Built Yet (Phase 3 Status)
+To maintain total transparency and avoid false security assumptions, the following features are **intentionally not built** in this phase:
+* ❌ **Document Upload / Download Routes**: Streaming route handlers and storage bucket configuration (Phase 4/5).
+* ❌ **Document CRUD / Sharing UI**: Document management tables, grant/revoke modals, and activity viewers.
 * ❌ **Cryptographic Audit Hash Chain Engine**: Node.js/Postgres SHA-256 rolling chain computation (Phase 4).
-* ❌ **UI Screens**: Document management tables, grant/revoke modals, and activity viewers.
+* ❌ **Private Storage Access**: Supabase Storage bucket policies and pre-signed streaming URL generation.
