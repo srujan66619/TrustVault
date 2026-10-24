@@ -349,7 +349,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - Updated `README.md` and `THREATS.md` (Threats P4-01 through P4-06).
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push.*
+  [e4a6c75](https://github.com/srujan66619/TrustVault/commit/e4a6c75)
 
 ---
 
@@ -387,7 +387,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - Updated `THREATS.md` with Threat **P4-07**.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push.*
+  [e4a6c75](https://github.com/srujan66619/TrustVault/commit/e4a6c75)
 
 ---
 
@@ -425,7 +425,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - Next.js Build: Compiled and prerendered successfully with PPR.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push.*
+  [e4a6c75](https://github.com/srujan66619/TrustVault/commit/e4a6c75)
 
 ---
 
@@ -474,7 +474,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - Next.js Build: Compiled successfully with Partial Prerendering.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push.*
+  [e4a6c75](https://github.com/srujan66619/TrustVault/commit/e4a6c75)
 
 
 
