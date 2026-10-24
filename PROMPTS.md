@@ -239,7 +239,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - `README.md` & `THREATS.md`: Comprehensive updates including authorization matrix, threat mitigations, and zero-trust admin architecture.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push.*
+  [`6f628fd`](https://github.com/srujan66619/TrustVault/commit/6f628fd) — `feat(phase-3): implement centralized server-side authorization core and session verification`
 
 ---
 
@@ -265,7 +265,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - `src/app/layout.tsx`: Responsive navigation preserving Home, Account, Sign In, and clearly designated Documents and Activity placeholders.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push.*
+  [`a56d8bd`](https://github.com/srujan66619/TrustVault/commit/a56d8bd) — `feat(ui): add 3D landing experience with truthful security copy and reduced-motion fallback`
 
 ---
 
@@ -303,7 +303,182 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - Zero changes made to Supabase schema, migrations, RLS, authentication, authorization, or audit code.
 
 * **Real Git Commit Hash / Link**:
+  [`a56d8bd`](https://github.com/srujan66619/TrustVault/commit/a56d8bd) — `feat(ui): add 3D landing experience with truthful security copy and reduced-motion fallback`
+
+---
+
+### Entry 11: 2026-10-23 — Phase 4: Tamper-Evident Audit-Log Infrastructure
+
+* **What was asked**:
+  Begin Phase 4 after confirming previous commits were pushed:
+  1. Keep scope limited to audit infrastructure, migrations, verification, and documentation. Do not build document CRUD, upload/download routes, sharing UI, grant/revoke endpoints, or admin activity screens.
+  2. Inspect connected Supabase project schema, policies, triggers, functions, and rows.
+  3. Create timestamped migration `supabase/migrations/20261023010000_tamper_evident_audit_infrastructure.sql`.
+  4. Implement safe audit design:
+     - Non-null `prev_hash`, `row_hash`, and monotonic `sequence_number`.
+     - Transaction-scoped advisory lock (`pg_advisory_xact_lock`) to serialize writes and prevent hash chain forking.
+     - Deterministic canonical payload builder and SHA-256 computation.
+     - Privilege isolation: table writes and `append_audit_log` revoked from browser client roles (`anon`, `authenticated`), granted strictly to server `service_role`.
+     - Preserve append-only triggers blocking UPDATE, DELETE, and TRUNCATE.
+     - Drop `ON DELETE SET NULL` foreign keys to preserve audit identifiers upon document/user deletion and support IDOR non-existent document probe logging.
+  5. Add server-only audit helper `src/lib/audit/audit.ts` that fails closed (`AuditLoggingError`).
+  6. Add verification function `verify_audit_chain` detecting tampered data, modified hashes, broken links, and sequence gaps.
+  7. Add real tests against connected Supabase project via MCP and Vitest.
+  8. Update `README.md`, `THREATS.md`, and `PROMPTS.md`.
+
+* **What was produced & verified**:
+  - `supabase/migrations/20261023010000_tamper_evident_audit_infrastructure.sql`:
+    - Created monotonic `sequence_number bigint NOT NULL UNIQUE`, non-null `prev_hash`, and non-null `row_hash`.
+    - Dropped `ON DELETE SET NULL` foreign keys on `actor_id` and `document_id`.
+    - Added `build_audit_canonical_payload` for deterministic multiline prefixed string formatting.
+    - Added `append_audit_log` with `pg_advisory_xact_lock(8273619283746152431::bigint)` concurrency serialization and genesis anchor handling (64 zeros).
+    - Added `verify_audit_chain` recomputing SHA-256 hashes and validating continuity.
+    - Applied privilege lockdown: revoked write and append execute privileges from `anon` and `authenticated`; granted exclusively to `service_role`.
+  - Applied migration live to Supabase project via Supabase MCP `apply_migration`.
+  - `src/lib/audit/audit.ts`:
+    - Server-only audit module with `logAuditEvent` and `verifyAuditChain`.
+    - Fail-closed error handling with `AuditLoggingError`.
+  - `supabase/verify_audit_chain.sql` & `verify_audit_security_baseline`:
+    - 14 live verification tests executed against Supabase via MCP, verifying hash chain continuity, tampered payload detection, forged hash detection, broken link detection, sequence gap detection, client privilege revocation, trigger protection, and fail-closed validation. All 14 tests PASSED (100% green).
+  - `tests/audit.test.ts`:
+    - Automated Vitest test suite executing 9 tests verifying live Supabase permission denial, live `verify_audit_security_baseline` execution, fail-closed parameter validation, and verification reporting.
+  - Test & Build Results:
+    - `npm test`: 25 passed across 2 test files (100% green).
+    - `npm run lint`: 0 errors, 0 warnings.
+    - `npm run build`: Production build compiled cleanly with all routes optimized.
+  - Updated `README.md` and `THREATS.md` (Threats P4-01 through P4-06).
+
+* **Real Git Commit Hash / Link**:
   *Pending commit and push.*
+
+---
+
+### Entry 12: 2026-10-23 — Phase 4 Correction: Service Role Privilege Lockdown on audit_logs
+
+* **What was asked**:
+  Fix the role privilege over-grant before committing Phase 4:
+  1. `GRANT ALL ON public.audit_logs TO service_role` previously allowed server-side service-role clients to directly insert audit rows, bypassing `append_audit_log`, transaction advisory locking, and SHA-256 hash calculation.
+  2. Create a new timestamped migration (`20261023020000_audit_service_role_lockdown.sql`) without editing previous migrations.
+  3. Revoke direct `INSERT`, `UPDATE`, `DELETE`, and `TRUNCATE` privileges on `public.audit_logs` from `service_role`.
+  4. Grant `service_role` only minimum required privilege (`SELECT` for verification).
+  5. Keep `EXECUTE` on `append_audit_log` for `service_role` and confirm `SECURITY DEFINER` function writes successfully.
+  6. Add live Supabase test proving:
+     - `service_role` direct INSERT is denied;
+     - `service_role` can append only through `append_audit_log`;
+     - the appended row validates through `verify_audit_chain`.
+  7. Update `THREATS.md` and `PROMPTS.md` truthfully.
+
+* **What was produced & verified**:
+  - `supabase/migrations/20261023020000_audit_service_role_lockdown.sql`:
+    - Revoked `INSERT, UPDATE, DELETE, TRUNCATE` on `public.audit_logs` from `service_role`.
+    - Granted `SELECT` on `public.audit_logs` to `service_role`.
+    - Re-affirmed `EXECUTE` on `append_audit_log` and `verify_audit_chain` for `service_role`.
+  - Applied migration live to Supabase via Supabase MCP `apply_migration`.
+  - Updated `public.verify_audit_security_baseline()` and `supabase/verify_audit_chain.sql` with 16 comprehensive tests:
+    - Test 9: `has_table_privilege('service_role', 'public.audit_logs', 'INSERT') = false` (PASSED).
+    - Test 10: `service_role` appends exclusively through `append_audit_log` via `SECURITY DEFINER` (PASSED).
+    - Test 11: Appended record validates through `verify_audit_chain` (PASSED).
+  - Executed test suite live against Supabase via MCP: all **16 out of 16 tests PASSED (100% green)**.
+  - Updated `tests/audit.test.ts` to assert live execution and passing of all 16 security tests.
+  - Test & Build Results:
+    - `npm test`: 25 passed across 2 test files (100% green).
+    - `npm run lint`: 0 errors, 0 warnings.
+    - `npm run build`: Production build succeeded.
+  - Updated `THREATS.md` with Threat **P4-07**.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push.*
+
+---
+
+### Entry 13: 2026-10-24 — Phase 4 Reconciliation: Live Database Signature Audit & Rollback Isolation
+
+* **What was asked**:
+  1. Inspect live database via Supabase MCP to resolve conflicting object names and function signatures in the previous report.
+  2. Return exact query outputs for:
+     - `\df+ public.append_audit_log` equivalent query from `pg_proc`;
+     - `\df+ public.verify_audit_chain` equivalent query from `pg_proc`;
+     - `information_schema.columns` for `public.audit_logs`;
+     - `pg_trigger` entries for `public.audit_logs`;
+     - privilege checks for `service_role` on `audit_logs` and both functions.
+  3. Reconcile repository migrations, code, and documentation to match the live database exactly with exact parameter signatures:
+     - `public.append_audit_log(p_actor_id uuid, p_document_id uuid, p_action text, p_result text, p_metadata jsonb, p_ip_address text, p_user_agent text)`
+     - `public.verify_audit_chain(p_from_sequence bigint, p_limit integer)`
+  4. Identify whether live verification tests inserted permanent audit rows, label them clearly as test events, and explain why test data was written (calling `append_audit_log` inside `verify_audit_security_baseline()` committed rows on each test run).
+  5. Refactor test harnesses so that all dynamic write, append, and validation tests execute within a single transaction terminated with `ROLLBACK;`.
+  6. Rerun direct `service_role` denial test, controlled append test, chain verification, Vitest, lint, and build. Show actual outputs and stop for review.
+
+* **What was produced & verified**:
+  - Live inspection confirmed:
+    - Function signature for `append_audit_log`: `(uuid, uuid, text, text, jsonb, text, text)` returning `TABLE(id uuid, sequence_number bigint, actor_id uuid, document_id uuid, action text, result text, "timestamp" timestamptz, prev_hash text, row_hash text, metadata jsonb)`.
+    - Function signature for `verify_audit_chain`: `(bigint, integer)` returning `TABLE(is_valid boolean, total_verified integer, failed_at_sequence bigint, failure_reason text, expected_value text, actual_value text)`.
+    - `public.audit_logs` sequence column is `sequence_number` (type `bigint`).
+    - Active triggers are `trg_prevent_audit_log_mutation` (`BEFORE UPDATE OR DELETE`) and `trg_prevent_audit_log_truncate` (`BEFORE TRUNCATE`).
+    - Privileges for `service_role` on `public.audit_logs`: `SELECT`, `REFERENCES`, `TRIGGER` (direct write privileges strictly revoked).
+    - Routine privileges for `service_role`: `EXECUTE` on both `append_audit_log` and `verify_audit_chain`.
+  - Permanent audit row audit: 10 rows exist in `public.audit_logs` (seq 1..3 from initial migration smoke-tests, seq 4..10 from prior test runs). All 10 rows form an unbroken cryptographic SHA-256 chain verified by `verify_audit_chain(1, 1000)`.
+  - Refactored `public.verify_audit_security_baseline()` into an idempotent, zero-write inspection function.
+  - Refactored `supabase/verify_audit_chain.sql` into a transaction-scoped runner with `BEGIN; ... CREATE TEMP TABLE ... ROLLBACK;`, executing 19 comprehensive tests (including dynamic direct INSERT denial under `service_role` rejecting with SQLSTATE 42501, controlled append via SECURITY DEFINER, and chain validation) leaving 0 permanent rows.
+  - Reran test suites:
+    - Vitest: 25 passed across 2 test files (100% green).
+    - ESLint: 0 errors, 0 warnings.
+    - Next.js Build: Compiled and prerendered successfully with PPR.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push.*
+
+---
+
+### Entry 14: 2026-10-24 — Phase 4 Final Least-Privilege Correction: Complete Privilege Lockdown
+
+* **What was asked**:
+  1. Create a new timestamped migration (`20261024010000_audit_least_privilege_final.sql`) without editing previous migrations.
+  2. Execute:
+     ```sql
+     REVOKE ALL ON TABLE public.audit_logs FROM service_role;
+     GRANT SELECT ON TABLE public.audit_logs TO service_role;
+
+     REVOKE ALL ON FUNCTION public.verify_audit_chain(bigint, integer)
+     FROM PUBLIC, anon, authenticated;
+     GRANT EXECUTE ON FUNCTION public.verify_audit_chain(bigint, integer)
+     TO service_role;
+     ```
+  3. Preserve `service_role` EXECUTE on `append_audit_log(uuid, uuid, text, text, jsonb, text, text)` only.
+  4. Run live checks proving:
+     - `service_role` has only `SELECT` on `audit_logs` (no `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`);
+     - `anon` and `authenticated` cannot execute either audit function;
+     - `service_role` can append through `append_audit_log`;
+     - `service_role` can verify through `verify_audit_chain`;
+     - the chain remains valid;
+     - all verification writes are rolled back.
+  5. Update `THREATS.md` and `PROMPTS.md` truthfully, rerun tests, lint, and build. Stop for approval before committing.
+
+* **What was produced & verified**:
+  - `supabase/migrations/20261024010000_audit_least_privilege_final.sql` created and applied live via Supabase MCP `apply_migration` (`{"success": true}`).
+  - Live PostgreSQL inspection confirmed:
+    - `service_role` table privileges on `public.audit_logs`: strictly `SELECT` (`can_select: true`, all others `false`).
+    - `anon` and `authenticated` function privileges: `can_execute_append: false`, `can_execute_verify: false`.
+    - `service_role` routine privileges: `EXECUTE` on `append_audit_log` and `verify_audit_chain`.
+  - Live 5-point verification suite executed within transaction rollback:
+    - Check 1: `service_role Strict SELECT-Only on audit_logs` (PASSED)
+    - Check 2: `Client Roles Denied Both Functions` (PASSED)
+    - Check 3: `service_role Can Append Through append_audit_log` (PASSED, transient sequence 11)
+    - Check 4: `service_role Can Verify Through verify_audit_chain` (PASSED, total_verified=11)
+    - Check 5: `Audit Log Cryptographic Chain Remains Valid` (PASSED)
+    - Transaction `ROLLBACK;` executed; table row count confirmed unchanged at 10.
+  - Added test in `tests/audit.test.ts` verifying `anon` client cannot execute `verify_audit_chain`.
+  - Updated `THREATS.md` with Threat **P4-08**.
+  - Test & Build Results:
+    - Vitest: 26 passed across 2 test files (100% green).
+    - ESLint: 0 errors, 0 warnings.
+    - Next.js Build: Compiled successfully with Partial Prerendering.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push.*
+
+
+
+
 
 
 

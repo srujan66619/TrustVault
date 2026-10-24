@@ -132,9 +132,51 @@ Postgres RLS provides strict database-level defense in depth. However, database 
 
 ---
 
-## What Is Explicitly Not Built Yet (Phase 3 Status)
+## Tamper-Evident Audit-Log Infrastructure (Phase 4 Baseline)
+
+### 1. Cryptographic SHA-256 Hash Chain
+Every event recorded in `public.audit_logs` forms an unbroken, mathematically verifiable hash chain:
+* **Monotonic Sequence (`sequence_number`)**: Unique, strictly ascending sequence starting at 1 with zero gaps.
+* **Prior Hash Anchor (`prev_hash`)**: Stores the `row_hash` of the immediately preceding record. For the genesis record (sequence 1), `prev_hash` is anchored to 64 zeros (`0000000000000000000000000000000000000000000000000000000000000000`).
+* **Current Row Hash (`row_hash`)**: Non-null SHA-256 digest computed from a deterministic canonical payload.
+
+### 2. Deterministic Canonical Payload Format
+To eliminate ambiguity, payload fields are formatted into a deterministic newline-separated specification:
+```
+seq:<sequence_number>
+id:<id>
+actor:<actor_id_or_empty>
+doc:<document_id_or_empty>
+action:<action>
+result:<result>
+ts:<iso8601_utc_timestamp_microseconds>
+prev:<prev_hash>
+meta:<canonical_jsonb_text>
+```
+Any modification to actor, document, action, result, timestamp, metadata, or prior hash alters the computed hash and breaks the chain.
+
+### 3. Concurrency Serialization & Anti-Forking
+Concurrent writes cannot fork the hash chain or introduce sequence gaps:
+* `append_audit_log` acquires a transaction-scoped advisory lock (`pg_advisory_xact_lock(8273619283746152431::bigint)`).
+* All concurrent append transactions serialize cleanly, reading the committed chain head before inserting the next entry.
+* The lock releases automatically upon transaction `COMMIT` or `ROLLBACK`.
+
+### 4. Privilege Isolation & Role Model
+* **Client Write Lockdown**: Table privileges (`INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`) on `public.audit_logs` are revoked from `anon` and `authenticated` browser roles.
+* **RPC Execution Lockdown**: `append_audit_log` execution is revoked from `PUBLIC`, `anon`, and `authenticated`; granted exclusively to server `service_role`.
+* **Database Triggers**: Row-level trigger `trg_prevent_audit_log_mutation` and statement-level trigger `trg_prevent_audit_log_truncate` block any modification even if attempted by privileged roles.
+* **Foreign Key Decoupling**: Foreign keys with `ON DELETE SET NULL` were dropped to guarantee that document deletions or user account purges never mutate historical audit rows, and non-existent IDs probed during IDOR attacks can be safely logged without constraint errors.
+
+### 5. Server-Side Fail-Closed Helper (`src/lib/audit/audit.ts`)
+* `logAuditEvent(input)` executes `append_audit_log` under `service_role`.
+* **Fail-Closed Guarantee**: Throws `AuditLoggingError` if logging fails. Calling sensitive routes must abort execution if the audit record cannot be committed.
+* `verifyAuditChain(fromSequence, limit)` recomputes every payload hash and verifies chain continuity, sequence monotonicity, and hash links.
+
+---
+
+## What Is Explicitly Not Built Yet (Phase 4 Status)
 To maintain total transparency and avoid false security assumptions, the following features are **intentionally not built** in this phase:
-* ❌ **Document Upload / Download Routes**: Streaming route handlers and storage bucket configuration (Phase 4/5).
-* ❌ **Document CRUD / Sharing UI**: Document management tables, grant/revoke modals, and activity viewers.
-* ❌ **Cryptographic Audit Hash Chain Engine**: Node.js/Postgres SHA-256 rolling chain computation (Phase 4).
-* ❌ **Private Storage Access**: Supabase Storage bucket policies and pre-signed streaming URL generation.
+* ❌ **Document Upload / Download Routes**: Streaming route handlers, storage bucket integration, and file chunking (Phase 5).
+* ❌ **Document CRUD & Sharing UI**: File upload forms, document list tables, and permission grant/revoke dialogs.
+* ❌ **Admin Activity UI**: Frontend screens for viewing audit trails or triggering verification scans.
+* ❌ **Physical Storage Buckets**: Supabase Storage private buckets and pre-signed download streaming.
