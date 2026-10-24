@@ -19,7 +19,8 @@ export interface SessionContext {
 export class AuthenticationError extends Error {
   constructor(
     message: string,
-    public readonly code: 'UNAUTHENTICATED' | 'ACCOUNT_DISABLED' | 'PROFILE_NOT_FOUND'
+    public readonly code: 'UNAUTHENTICATED' | 'ACCOUNT_DISABLED' | 'PROFILE_NOT_FOUND',
+    public readonly userId?: string
   ) {
     super(message);
     this.name = 'AuthenticationError';
@@ -83,7 +84,8 @@ export async function requireAuth(): Promise<SessionContext> {
   if (!context.isActive) {
     throw new AuthenticationError(
       'Account is disabled. Access denied.',
-      'ACCOUNT_DISABLED'
+      'ACCOUNT_DISABLED',
+      context.user.id
     );
   }
 

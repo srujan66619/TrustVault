@@ -474,7 +474,95 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - Next.js Build: Compiled successfully with Partial Prerendering.
 
 * **Real Git Commit Hash / Link**:
-  [e4a6c75](https://github.com/srujan66619/TrustVault/commit/e4a6c75)
+  [700c284](https://github.com/srujan66619/TrustVault/commit/700c284)
+
+---
+
+### Entry 15: 2026-10-24 — Phase 5: Secure Document Upload, List, Metadata, and Download Routes
+
+* **What was asked**:
+  1. Implement secure document access and file handling: document upload, list/search, metadata, and download routes.
+  2. Scope boundaries: Keep work strictly limited to secure document access and file handling. Do not build sharing/grant/revoke UI, permission-management routes, audit-history UI, admin dashboard, or search UI beyond safe server endpoints.
+  3. Create one private Supabase Storage bucket for TrustVault documents with zero direct browser client upload, download, list, update, or delete access.
+  4. Never issue signed download URLs.
+  5. All uploads and downloads must pass through Next.js server routes.
+  6. Generate random UUID storage object keys server-side; never derive physical paths from filenames or user IDs.
+  7. Do not expose the service-role key to client components.
+  8. Enforce centralized authorization (`authorize(userId, documentId, action)`) on every single-document route; return uniform 404 (`NOT_FOUND_OR_DENIED`) for invalid, unauthorized, soft-deleted, and nonexistent document IDs.
+  9. In-database filtering for list and search before fetching records; run `authorize()` on each returned document as defense in depth.
+  10. Multi-layer upload validation: Zod for metadata, explicit file type allow-list (PDF, PNG, JPEG, plain text), magic-byte verification, extension check, 15MB size limit, filename sanitization. Reject SVG, HTML, executables, archives, null bytes, and traversal.
+  11. Mandatory audit logging with fail-closed semantics. Atomicity on upload failure (safe deletion of uploaded storage object if database/audit fails). Re-authorize immediately before download streaming, and ensure download audit succeeds before sending bytes.
+  12. Add real tests against connected Supabase environment; update README, THREATS.md, and PROMPTS.md. Stop and wait for approval before Phase 6.
+
+* **What was produced & verified**:
+  - Applied migration `20261024020000_secure_storage_and_document_procedures.sql`:
+    - Private bucket `documents` created (`public: false`, `file_size_limit: 15728640`, allowed MIME types PDF, PNG, JPEG, text).
+    - Storage RLS verified; browser roles `anon` and `authenticated` have zero storage policies.
+    - RPC `public.list_accessible_documents(p_user_id, p_search, p_category, p_limit, p_offset)` created with in-database owner/grantee filtering.
+  - Installed `zod` via `npm install zod --legacy-peer-deps`.
+  - Implemented `src/lib/documents/validation.ts`: Zod schema, magic-byte detector (`%PDF-`, PNG, JPEG, UTF-8 text without control/null bytes), extension validator, and filename sanitizer.
+  - Implemented `src/lib/documents/documents.ts`: server-side functions `uploadDocument`, `listAccessibleDocuments`, `getDocumentMetadata`, and `downloadDocument` with fail-closed auditing and atomic rollback.
+  - Implemented route handlers:
+    - `POST /api/documents` (upload with atomic storage cleanup and audit logging)
+    - `GET /api/documents` (list/search with in-database filtering and defense-in-depth authorization)
+    - `GET /api/documents/[id]` (metadata retrieval with uniform 404 response)
+    - `GET /api/documents/[id]/download` (streamed binary download with pre-stream re-authorization and attachment headers)
+  - Added 23 real integration tests in `tests/documents.test.ts`.
+  - Updated `README.md` and `THREATS.md` (Section 9, threats P5-01 through P5-09).
+  - Test & Build Results:
+    - `npm test`: **49 passed across 3 test files (100% green)**.
+    - `npm run lint`: **0 errors, 0 warnings**.
+    - `npm run build`: Compiled and prerendered successfully with Next.js PPR and Turbopack.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push following user review and approval.*
+
+---
+
+### Entry 16: 2026-10-24 — Phase 5 Corrective Migration: Anti-IDOR List RPC, Atomic Upload Procedure & Exact Authorization Actions
+
+* **What was asked**:
+  1. Fix the `SECURITY DEFINER` list/search RPC IDOR:
+     - Do not trust a caller-supplied `p_user_id`.
+     - Derive caller identity inside the function from `auth.uid()`.
+     - Reject with 0 rows if an authenticated client supplies `p_user_id <> auth.uid()`.
+     - Ensure the function returns zero rows for anonymous, disabled, and mismatched-user callers.
+     - Add live tests proving an authenticated unrelated user cannot call the RPC with the owner’s UUID to obtain titles, metadata, categories, or document IDs.
+  2. Make upload metadata creation and the successful audit event atomic:
+     - Do not use separate service-role database calls for document `INSERT` and audit append.
+     - Add a server-only, least-privilege database procedure (`create_document_and_audit`) that creates document metadata and appends the `DOCUMENT_CREATE` audit event in one transaction.
+     - If that procedure fails, delete the just-uploaded Storage object as compensation.
+     - Add a test proving an audit failure leaves neither a document metadata row nor a Storage object.
+  3. Ensure exact authorization actions:
+     - Download routes must call `authorize(userId, documentId, 'DOWNLOAD')`, not a generic `'VIEW'`.
+     - Metadata routes must use the intended read action (`'READ'`).
+     - Add tests demonstrating the exact `DOWNLOAD` authorization branch is exercised.
+  4. Confirm list/search audit logging exists for allowed and denied requests, without recording sensitive search terms or document contents.
+  5. Apply corrective migration through Supabase MCP, execute live isolation tests, run test/lint/build, update `THREATS.md` and `PROMPTS.md`, and stop for approval before committing.
+
+* **What was produced & verified**:
+  - Created and applied corrective migration `20261024030000_secure_documents_atomic_upload_and_idor_fix.sql`:
+    - Updated `public.list_accessible_documents(p_user_id, p_search, p_category, p_limit, p_offset)`: derives identity from `auth.uid()` for client callers; rejects mismatched `p_user_id <> auth.uid()` with 0 rows; returns 0 rows for anonymous, disabled, or mismatched contexts.
+    - Created `public.create_document_and_audit(...)`: atomic procedure creating document row and calling `append_audit_log` within a single PostgreSQL transaction; granted strictly to `service_role`.
+  - Created `supabase/verify_phase5_security.sql`: transaction-scoped runner executing 8 security tests terminating with `ROLLBACK;`. All 8 passed (100% green).
+  - Updated `src/lib/documents/documents.ts`:
+    - `uploadDocument`: calls `create_document_and_audit` RPC; deletes uploaded Storage key upon failure (compensating transaction).
+    - `listAccessibleDocuments`: audits allowed and denied requests; metadata records `has_search` boolean and counts, strictly excluding raw search terms and contents.
+    - `downloadDocument`: calls `authorize(userId, documentId, 'DOWNLOAD')` and rechecks before streaming.
+    - `getDocumentMetadata`: calls `authorize(userId, documentId, 'READ')`.
+  - Updated `src/lib/auth/session.ts`: added `userId` to `AuthenticationError` so denied sessions are logged in the audit trail.
+  - Updated `src/app/api/documents/route.ts`: logs `ACCESS_DENIED` audit events for rejected upload and list requests.
+  - Updated `tests/documents.test.ts`: 29 automated tests (all 55 tests pass project-wide).
+  - Updated `THREATS.md` (Threats `P5-01`, `P5-08`, `P5-09`, `P5-10`).
+  - Test & Build Results:
+    - Vitest: **55 passed across 3 test files (100% green)**.
+    - ESLint: **0 errors, 0 warnings**.
+    - Next.js Build: Compiled successfully with Partial Prerendering and Turbopack.
+
+* **Real Git Commit Hash / Link**:
+  *Pending commit and push following user review and approval.*
+
+
 
 
 

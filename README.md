@@ -174,9 +174,35 @@ Concurrent writes cannot fork the hash chain or introduce sequence gaps:
 
 ---
 
-## What Is Explicitly Not Built Yet (Phase 4 Status)
+## Secure Document Access & File Handling (Phase 5 Baseline)
+
+### 1. Private Storage Architecture
+TrustVault uses a dedicated private Supabase Storage bucket (`documents`) isolated from browser clients:
+* **Zero Browser Client Storage Access**: RLS on `storage.objects` denies all operations (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) from `anon` and `authenticated` browser roles. Browser clients have zero direct Storage API access.
+* **No Signed Download URLs**: TrustVault strictly prohibits time-limited pre-signed download URLs. Pre-signed URLs leak permanent authorization into cached URLs and evade real-time database permission revocation. All bytes stream directly through Next.js server route handlers.
+* **Random UUID Storage Object Keys**: Physical storage keys are generated server-side using cryptographic UUIDs (`crypto.randomUUID()`). Physical storage paths are never derived from filenames, user IDs, or client-supplied strings, preventing path traversal and object enumeration.
+
+### 2. Multi-Layer File Validation
+All uploaded files are subjected to strict server-side validation before storage:
+* **Extension Allow-List**: Only `.pdf`, `.png`, `.jpg`, `.jpeg`, and `.txt` are permitted.
+* **Magic-Byte Signature Verification**: Inspects raw binary headers (e.g. `%PDF-` for PDF, `\x89PNG\r\n\x1a\n` for PNG, `\xFF\xD8\xFF` for JPEG, UTF-8 clean text with zero null bytes for TXT). Browser-supplied MIME headers are untrusted.
+* **Strict Type Rejection**: SVG (preventing stored XSS), HTML, executables, scripts, shell binaries, and archives are strictly denied.
+* **Size Limits**: Enforces a conservative 15MB limit (`15,728,640` bytes) for safe in-memory streaming and memory exhaustion protection.
+* **Display Name Sanitization**: Strips path separators (`/`, `\`), traversal sequences (`..`), null bytes (`\0`), HTML brackets, and control characters.
+* **Zod Input Validation**: Non-file metadata (title, category) is validated via Zod schemas. Request bodies are never spread directly into database queries.
+
+### 3. Server Endpoints & In-Database Scoping
+All document interactions occur through server-side route handlers enforcing live profile status and centralized `authorize(userId, documentId, action)`:
+* **`POST /api/documents`**: Validates file and metadata, generates random UUID storage key, uploads to private bucket, creates database record, and writes an atomic tamper-evident audit log. If database or audit write fails, the uploaded storage object is deleted (fail-closed atomic rollback).
+* **`GET /api/documents`**: Lists and searches accessible documents. Filters for owner and grantee permissions directly inside PostgreSQL (`public.list_accessible_documents`), ensuring unowned/ungranted records are never fetched. Runs `authorize()` on each record before serialization as defense in depth.
+* **`GET /api/documents/[id]`**: Retrieves document metadata. Returns a uniform 404 for forbidden, soft-deleted, invalid, or nonexistent IDs to prevent document existence enumeration. Internal `storage_object_key` is never exposed.
+* **`GET /api/documents/[id]/download`**: Downloads document bytes. Re-evaluates authorization immediately before beginning download streaming. Commits the allowed-download audit event before streaming bytes. Sets `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, and server-allowlisted `Content-Type`.
+
+---
+
+## What Is Explicitly Not Built Yet (Phase 5 Status)
 To maintain total transparency and avoid false security assumptions, the following features are **intentionally not built** in this phase:
-* ❌ **Document Upload / Download Routes**: Streaming route handlers, storage bucket integration, and file chunking (Phase 5).
+* ❌ **Sharing & Permission Management Routes**: Explicit grant (`POST /api/documents/[id]/permissions`) and revoke endpoints (Phase 6).
 * ❌ **Document CRUD & Sharing UI**: File upload forms, document list tables, and permission grant/revoke dialogs.
-* ❌ **Admin Activity UI**: Frontend screens for viewing audit trails or triggering verification scans.
-* ❌ **Physical Storage Buckets**: Supabase Storage private buckets and pre-signed download streaming.
+* ❌ **Audit History UI**: Frontend screens for viewing audit trails or triggering verification scans.
+* ❌ **Admin Dashboard**: Multi-tenant administrative views or system status dashboards.
