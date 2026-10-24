@@ -515,7 +515,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - `npm run build`: Compiled and prerendered successfully with Next.js PPR and Turbopack.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push following user review and approval.*
+  [841f4d6](https://github.com/srujan66619/TrustVault/commit/841f4d6)
 
 ---
 
@@ -560,7 +560,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - Next.js Build: Compiled successfully with Partial Prerendering and Turbopack.
 
 * **Real Git Commit Hash / Link**:
-  *Pending commit and push following user review and approval.*
+  [841f4d6](https://github.com/srujan66619/TrustVault/commit/841f4d6)
 
 
 
