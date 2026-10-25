@@ -1048,24 +1048,4 @@ This document tracks all user prompts, assistant outputs, architectural critique
       - Re-ran live Supabase verification: **12 / 12 checks PASSED (100% green)**.
 
 * **Real Git Commit Hash / Link**:
-   *(Pending approval before commit/push)*
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   [f0cfa00](https://github.com/srujan66619/TrustVault/commit/f0cfa00)
