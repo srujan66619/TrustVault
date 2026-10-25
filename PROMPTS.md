@@ -1146,3 +1146,42 @@ This document tracks all user prompts, assistant outputs, architectural critique
 * **Real Git Commit Hash / Link**:
   [`76c0152`](https://github.com/srujan66619/TrustVault/commit/76c0152)
 
+---
+
+### Entry 15: 2026-10-25 — Immersive Full-Bleed 3D Vault Landing Experience
+
+* **What was asked**:
+  Redesign the landing page visual treatment:
+  - Scope: visual/UI only. Zero changes to authentication, authorization, API routes, Supabase, database, security headers, environment variables, or tests.
+  - Eliminate the centered dark panel with large white empty side margins; make the entire viewport a cohesive, full-bleed dark 3D environment (#020617 / #030712) without white margins at any desktop width.
+  - Deep navy/black cinematic background across the whole page with subtle depth: slow moving particles, soft cyan/purple blooms, faint perspective grid, and restrained glass reflections.
+  - Navbar: translucent dark glass with subtle bottom border blending into the experience.
+  - Replace the "card inside a page" hero with a seamless, responsive layout merging into the full-page environment.
+  - 3D Bank Vault as focal point:
+    - Large circular steel door with thick outer rim.
+    - Radial locking bars, bolts, depth, shadows, and cyan light around the seam.
+    - Slight 3D tilt/parallax, moving light reflection across metal, and slow idle movement.
+    - Zero visible square canvas/frame around the vault; fades naturally into the background.
+  - Refined typography hierarchy: "Document security that holds.", balanced without awkward wrapping.
+  - Fewer buttons: primary "Open Document Vault" and quieter secondary "Explore security model" with hover glow.
+  - Ensure intentional mobile layout: hero text first, vault below, zero horizontal scroll, usable navbar.
+  - Respect prefers-reduced-motion with strong static fallback.
+  - Inspect desktop/mobile, run test/lint/build, commit and push with:
+    `feat(ui): create immersive full-bleed 3D vault landing experience`
+
+* **What was produced & verified**:
+  - `src/app/globals.css`: Fixed root background variables to `#020617` and set dark color scheme, eradicating white side margins and light-mode bleed across all viewports.
+  - `src/components/ui/SiteBackdrop.tsx`: Upgraded to a full-bleed cinematic environment with deep navy/black base, subtle cyan/violet radial glows, and a horizon-fading perspective floor grid.
+  - `src/app/layout.tsx`: Updated navbar to translucent dark glass (`backdrop-blur-xl bg-slate-950/40 border-b border-cyan-500/10`) with full-width responsiveness.
+  - `src/components/ui/VaultCanvas.tsx`: Redesigned bank vault door with a 2.8 radius outer flange, 20 perimeter rim bolts, 2.32 recessed portal, glowing cyan seam ring, 8 radial steel locking bars, mirror chrome 6-spoke wheel, and sweeping metallic reflection spotlight. Removed all square bounding boxes and borders for seamless natural floating.
+  - `src/components/ui/VaultFallback.tsx`: Redesigned frameless circular bank vault door fallback with reduced-motion support.
+  - `src/app/page.tsx`: Replaced boxed hero card with a seamless full-bleed layout, focused two-button hierarchy ("Open Document Vault" and "Explore security model"), balanced typography, and dark glass security cards.
+  - Visual verification: Verified desktop and mobile viewports with browser subagent.
+  - Automated tests: 142 / 142 passed (100% green).
+  - Lint: 0 errors, 0 warnings.
+  - Production build: Next.js Turbopack compiled with exit code 0.
+
+* **Real Git Commit Hash / Link**:
+  *(Pending approval before commit/push)*
+
+
