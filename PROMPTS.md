@@ -560,7 +560,8 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - Next.js Build: Compiled successfully with Partial Prerendering and Turbopack.
 
 * **Real Git Commit Hash / Link**:
----
+  [841f4d6](https://github.com/srujan66619/TrustVault/commit/841f4d6)
+
 
 ### Entry 17: 2026-10-25 — Phase 6: Owner-Controlled Permission Grants & Immediate Revocation
 
@@ -611,7 +612,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - Next.js Production Build: Compiled cleanly with partial prerendering and Turbopack.
 
 * **Real Git Commit Hash / Link**:
-  *Pending review and user approval before commit/push.*
+  [8fc534d](https://github.com/srujan66619/TrustVault/commit/8fc534d)
 
 ---
 
@@ -698,7 +699,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
     - Live Supabase: **15/15 procedural assertions passed**.
 
 * **Real Git Commit Hash / Link**:
-  *Pending review and user approval before commit/push.*
+  [8fc534d](https://github.com/srujan66619/TrustVault/commit/8fc534d)
 
 ---
 
@@ -764,7 +765,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
      - Reran production build: **Compiled successfully with partial prerendering and Turbopack (exit code 0)**.
 
 * **Real Git Commit Hash / Link**:
-  *Pending review and user approval before commit/push.*
+  [8fc534d](https://github.com/srujan66619/TrustVault/commit/8fc534d)
 
 
 
