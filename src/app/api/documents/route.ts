@@ -4,7 +4,7 @@ import {
   uploadDocument,
   listAccessibleDocuments,
 } from '@/lib/documents/documents';
-import { sanitizeFilename } from '@/lib/documents/validation';
+import { sanitizeFilename, listDocumentsQuerySchema } from '@/lib/documents/validation';
 import { logAuditEvent } from '@/lib/audit/audit';
 
 
@@ -93,8 +93,11 @@ export async function POST(req: NextRequest) {
  * Lists and searches accessible documents for the current authenticated user.
  * Filters are applied inside the PostgreSQL database query.
  * Query Parameters:
- * - 'q': search query for document display name
+ * - 'q' / 'search': search query for document display name
  * - 'category': category filter
+ * - 'createdAfter': ISO 8601 timestamp string
+ * - 'createdBefore': ISO 8601 timestamp string
+ * - 'ownerFilter': 'all' | 'mine' | 'shared'
  * - 'limit': pagination limit (default: 50, max: 100)
  * - 'offset': pagination offset (default: 0)
  */
@@ -106,20 +109,34 @@ export async function GET(req: NextRequest) {
     const session = await requireAuth();
 
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('q');
-    const category = searchParams.get('category');
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const rawSearch = searchParams.get('q') ?? searchParams.get('search');
+    const rawCategory = searchParams.get('category');
+    const rawCreatedAfter = searchParams.get('createdAfter');
+    const rawCreatedBefore = searchParams.get('createdBefore');
+    const rawOwnerFilter = searchParams.get('ownerFilter');
+    const rawLimit = searchParams.get('limit');
+    const rawOffset = searchParams.get('offset');
 
-    const documents = await listAccessibleDocuments(
-      session.user.id,
-      search,
-      category,
-      isNaN(limit) ? 50 : limit,
-      isNaN(offset) ? 0 : offset,
-      ip,
-      userAgent
-    );
+    const parsed = listDocumentsQuerySchema.safeParse({
+      search: rawSearch ? rawSearch : undefined,
+      category: rawCategory ? rawCategory : undefined,
+      createdAfter: rawCreatedAfter ? rawCreatedAfter : undefined,
+      createdBefore: rawCreatedBefore ? rawCreatedBefore : undefined,
+      ownerFilter: rawOwnerFilter ? rawOwnerFilter : 'all',
+      limit: rawLimit ? rawLimit : 50,
+      offset: rawOffset ? rawOffset : 0,
+    });
+
+    if (!parsed.success) {
+      const errorMsg = parsed.error.issues.map((i) => i.message).join('; ');
+      return NextResponse.json({ error: errorMsg }, { status: 400 });
+    }
+
+    const documents = await listAccessibleDocuments(session.user.id, {
+      ...parsed.data,
+      clientIp: ip,
+      userAgent,
+    });
 
     return NextResponse.json({ documents });
   } catch (err) {

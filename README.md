@@ -246,10 +246,51 @@ To eliminate audit bypasses and unauthenticated tampering:
 
 ---
 
-## What Is Explicitly Not Built Yet (Phase 6 Status)
-To maintain total transparency and avoid false security assumptions, the following features are **intentionally not built** in this phase:
-* ❌ **Admin Activity Dashboard**: System-wide compliance audit views and multi-tenant admin dashboards.
-* ❌ **Document Deletion UI**: Frontend interfaces for soft-deleting or purging documents.
+## Secure Document Dashboard, Metadata Management & Soft Deletion (Phase 7 Baseline)
+
+### 1. Document Dashboard UI (`/documents`)
+TrustVault Phase 7 turns secure document routes into a usable, responsive, protected document management workflow:
+* **Server-Protected Route**: `/documents` executes server-side session checks via `requireAuth()`. Unauthenticated requests are redirected immediately.
+* **Rich 3D Visual Aesthetics**: Integrates with TrustVault's 3D cyber-vault visual identity while guaranteeing high contrast, accessibility, and intuitive responsiveness.
+* **Integrated Upload & File Ingestion**: Secure drag-and-drop / file selector with client-side and server-side magic byte validation, progress feedback, and error disclosures.
+* **Safe In-Database Search & Filtering**: Multi-dimensional search controls (text search, category filter, date-range filters, and ownership filter `all` | `mine` | `shared`) applied entirely inside PostgreSQL after authorization scoping.
+* **Role-Aware UI Actions**:
+  * **Download**: Available to owners, `READ` grantees, and `EDIT` grantees.
+  * **Edit Metadata**: Control displayed and functional exclusively when `EDIT` action is authorized.
+  * **Delete**: Soft-delete action displayed and functional strictly for the document owner.
+  * **Manage Sharing**: Direct navigation to owner permission management modal/panel.
+* **Zero XSS Rendering**: Document titles and metadata are rendered strictly as safe text nodes. No user strings are injected as raw HTML.
+
+### 2. Safe Metadata Management
+* **Strictly Scoped Metadata**: In Phase 7, `EDIT` permission is strictly limited to editing safe metadata: `display_name` (1-255 characters, no control characters or HTML brackets) and `category` (`general`, `financial`, `legal`, `personal`, `technical`).
+* **Explicitly Unbuilt Content Replacement**: `EDIT` does **not** allow replacing file contents or swapping underlying Storage objects. Document payload replacement remains explicitly unbuilt.
+* **Atomic Procedure**: Executes through `public.update_document_metadata_and_audit(...)` under least-privilege `service_role` security definer, ensuring atomic state modification and tamper-evident audit logging.
+* **Anti-Mass Assignment**: Strictly validated using `updateDocumentMetadataSchema.strict()`. Extraneous fields (such as `owner_id`, `storage_object_key`, `size_bytes`, `deleted_at`) are unconditionally rejected.
+
+### 3. Owner-Only Soft Deletion
+* **Owner-Exclusive Authority**: Only the verified document owner may soft-delete a document (`authorize(userId, docId, 'DELETE')`). Grantees (even with `EDIT` permission) and administrators without ownership receive generic 404 responses.
+* **Immediate System-Wide Invisibility**: Setting `deleted_at = now()` immediately removes the document from list/search results, metadata retrieval, permission listings, and download routes. Subsequent requests return a uniform generic 404 (`{"error": "Document not found or access denied"}`).
+* **Retained Storage Objects Cleanup Risk**: Soft deletion does **not** erase the underlying physical object in Supabase Storage or historical records in `audit_logs`. This preserves the cryptographic integrity of the audit chain and prevents accidental data loss. Retained Storage objects consume storage quota and require an explicit cryptographic purge / lifecycle cleanup job (Phase 8+).
+
+### 4. Least-Privilege Table Lockdown
+* Direct `UPDATE`, `DELETE`, and `TRUNCATE` privileges on `public.documents` are **completely revoked** from `anon`, `authenticated`, and `service_role`.
+* All metadata updates and soft deletions MUST execute through server-only `SECURITY DEFINER` stored procedures:
+  * `public.update_document_metadata_and_audit(...)`
+  * `public.soft_delete_document_and_audit(...)`
+* Procedure execution privileges are granted exclusively to `service_role` and completely revoked from `anon`, `authenticated`, and `PUBLIC`.
+
+### 5. Extended Server Endpoints
+* **`PATCH /api/documents/[id]`**: Updates safe metadata (`display_name`, `category`). Gated by `authorize(userId, id, 'EDIT')`. Returns uniform 404 for forbidden, unknown, or soft-deleted documents.
+* **`DELETE /api/documents/[id]`**: Soft-deletes a document. Gated by `authorize(userId, id, 'DELETE')` (owner-only). Returns uniform 404 for forbidden, unknown, or soft-deleted documents.
+* **`GET /api/documents`**: Extended with query parameters for `category`, `createdAfter`, `createdBefore`, and `ownerFilter` (`all`, `mine`, `shared`). All parameters validated strictly via Zod.
+
+---
+
+## What Is Explicitly Not Built Yet (Phase 7 Status)
+To maintain total transparency and avoid false security assumptions, the following features are **intentionally not built** in this phase and are clearly disclosed in the UI:
+* ❌ **Document Content Replacement**: In-place binary payload replacement or file revision swapping.
+* ❌ **Permanent Cryptographic Deletion**: Hard physical file deletion or cryptographic shredding from storage media.
+* ❌ **Bulk Document Management**: Batch download, bulk export, or multi-select deletion.
 * ❌ **Public Sharing Links**: Anonymous or time-expiring external web links.
-* ❌ **Bulk User Directory**: Browseable user directories, contact auto-complete, or user discovery tools.
-* ❌ **AI Suggestions**: Machine learning or heuristic recommendations for document categorization or sharing recipients.
+* ❌ **Admin Activity Dashboard**: System-wide compliance audit views and multi-tenant admin dashboards.
+

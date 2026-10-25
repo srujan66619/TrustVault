@@ -5,6 +5,7 @@ import { authorize } from '@/lib/authorization/authorize';
 import {
   validateUploadedFile,
   documentMetadataInputSchema,
+  updateDocumentMetadataSchema,
   type DocumentMetadataInput,
 } from './validation';
 
@@ -25,6 +26,34 @@ export interface UploadDocumentResult {
   success: boolean;
   document?: DocumentRecord;
   error?: string;
+}
+
+export interface UpdateMetadataResult {
+  success: boolean;
+  document?: DocumentRecord;
+  error?: string;
+  notFoundOrDenied?: boolean;
+  auditSequenceNumber?: string;
+}
+
+export interface SoftDeleteResult {
+  success: boolean;
+  deletedAt?: string;
+  error?: string;
+  notFoundOrDenied?: boolean;
+  auditSequenceNumber?: string;
+}
+
+export interface ListDocumentsOptions {
+  search?: string | null;
+  category?: string | null;
+  createdAfter?: string | null;
+  createdBefore?: string | null;
+  ownerFilter?: 'all' | 'mine' | 'shared' | null;
+  limit?: number;
+  offset?: number;
+  clientIp?: string | null;
+  userAgent?: string | null;
 }
 
 export interface DownloadDocumentResult {
@@ -173,14 +202,43 @@ export async function uploadDocument(
  */
 export async function listAccessibleDocuments(
   userId: string,
-  search?: string | null,
-  category?: string | null,
-  limit = 50,
-  offset = 0,
-  clientIp?: string | null,
-  userAgent?: string | null
+  optionsOrSearch?: string | ListDocumentsOptions | null,
+  categoryParam?: string | null,
+  limitParam = 50,
+  offsetParam = 0,
+  clientIpParam?: string | null,
+  userAgentParam?: string | null
 ): Promise<DocumentRecord[]> {
   const adminClient = createAdminClient();
+
+  let search: string | null = null;
+  let category: string | null = null;
+  let createdAfter: string | null = null;
+  let createdBefore: string | null = null;
+  let ownerFilter: string | null = null;
+  let limit = 50;
+  let offset = 0;
+  let clientIp: string | null = null;
+  let userAgent: string | null = null;
+
+  if (typeof optionsOrSearch === 'object' && optionsOrSearch !== null) {
+    search = optionsOrSearch.search || null;
+    category = optionsOrSearch.category || null;
+    createdAfter = optionsOrSearch.createdAfter || null;
+    createdBefore = optionsOrSearch.createdBefore || null;
+    ownerFilter = optionsOrSearch.ownerFilter || null;
+    limit = optionsOrSearch.limit ?? 50;
+    offset = optionsOrSearch.offset ?? 0;
+    clientIp = optionsOrSearch.clientIp || null;
+    userAgent = optionsOrSearch.userAgent || null;
+  } else {
+    search = typeof optionsOrSearch === 'string' ? optionsOrSearch : null;
+    category = categoryParam || null;
+    limit = limitParam;
+    offset = offsetParam;
+    clientIp = clientIpParam || null;
+    userAgent = userAgentParam || null;
+  }
 
   // 1. Verify user profile status from database
   const { data: profile } = await adminClient
@@ -212,6 +270,9 @@ export async function listAccessibleDocuments(
     p_category: category && category.trim() !== '' ? category.trim() : null,
     p_limit: limit,
     p_offset: offset,
+    p_created_after: createdAfter || null,
+    p_created_before: createdBefore || null,
+    p_owner_filter: ownerFilter || 'all',
   });
 
   if (error || !data) {
@@ -256,6 +317,8 @@ export async function listAccessibleDocuments(
       count: verifiedDocs.length,
       has_search: Boolean(search && search.trim() !== ''),
       has_category: Boolean(category && category.trim() !== ''),
+      has_date_filter: Boolean(createdAfter || createdBefore),
+      has_owner_filter: Boolean(ownerFilter && ownerFilter !== 'all'),
     },
     ipAddress: clientIp,
     userAgent: userAgent,
@@ -416,3 +479,173 @@ export async function downloadDocument(
     filename: doc.display_name,
   };
 }
+
+/**
+ * Updates safe document metadata (display name and category).
+ * Centralized authorization check gates execution (owner or active EDIT grantee).
+ * Uses atomic procedure that persists update and audit log in one transaction.
+ */
+export async function updateDocumentMetadata(
+  userId: string,
+  documentId: string,
+  input: unknown,
+  clientIp?: string | null,
+  userAgent?: string | null
+): Promise<UpdateMetadataResult> {
+  const adminClient = createAdminClient();
+
+  // 1. Centralized Authorization Check (EDIT action: owner or active EDIT grantee)
+  const auth = await authorize(userId, documentId, 'EDIT');
+  if (!auth.allowed) {
+    await logAuditEvent({
+      actorId: userId,
+      documentId,
+      action: 'EDIT',
+      result: 'ACCESS_DENIED',
+      metadata: { reason: auth.reason },
+      ipAddress: clientIp,
+      userAgent: userAgent,
+    }).catch(() => {});
+
+    return {
+      success: false,
+      error: 'Document not found or access denied',
+      notFoundOrDenied: true,
+    };
+  }
+
+  // 2. Input Validation (Zod: safe metadata only; disallows mass-assignment)
+  const parsed = updateDocumentMetadataSchema.safeParse(input);
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues.map((i) => i.message).join('; ');
+    await logAuditEvent({
+      actorId: userId,
+      documentId,
+      action: 'EDIT',
+      result: 'FAILURE',
+      metadata: { reason: 'INVALID_INPUT', error: errorMsg },
+      ipAddress: clientIp,
+      userAgent: userAgent,
+    }).catch(() => {});
+
+    return {
+      success: false,
+      error: errorMsg,
+      notFoundOrDenied: false,
+    };
+  }
+
+  // 3. Call Atomic Database Procedure
+  try {
+    const { data: rows, error: rpcError } = await adminClient.rpc(
+      'update_document_metadata_and_audit',
+      {
+        p_actor_id: userId,
+        p_document_id: documentId,
+        p_display_name: parsed.data.displayName,
+        p_category: parsed.data.category,
+        p_ip_address: clientIp || null,
+        p_user_agent: userAgent || null,
+      }
+    );
+
+    if (rpcError || !rows || rows.length === 0) {
+      return {
+        success: false,
+        error: rpcError?.message || 'Database metadata update failed',
+      };
+    }
+
+    const row = rows[0];
+    return {
+      success: true,
+      document: {
+        id: row.id,
+        ownerId: row.owner_id,
+        displayName: row.display_name,
+        category: row.category,
+        contentType: row.content_type,
+        sizeBytes: Number(row.size_bytes),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        isOwner: auth.isOwner,
+        permission: auth.grantPermission || (auth.isOwner ? 'OWNER' : null),
+      },
+      auditSequenceNumber: row.audit_sequence_number?.toString(),
+    };
+  } catch (err) {
+    if (err instanceof AuditLoggingError) throw err;
+    return {
+      success: false,
+      error: 'An internal error occurred while updating document metadata',
+    };
+  }
+}
+
+/**
+ * Soft-deletes a document.
+ * Centralized authorization check strictly requires document OWNER.
+ * Uses atomic procedure that marks deleted_at and creates DELETE audit log.
+ */
+export async function softDeleteDocument(
+  userId: string,
+  documentId: string,
+  clientIp?: string | null,
+  userAgent?: string | null
+): Promise<SoftDeleteResult> {
+  const adminClient = createAdminClient();
+
+  // 1. Centralized Authorization Check (DELETE action: strictly owner)
+  const auth = await authorize(userId, documentId, 'DELETE');
+  if (!auth.allowed) {
+    await logAuditEvent({
+      actorId: userId,
+      documentId,
+      action: 'DELETE',
+      result: 'ACCESS_DENIED',
+      metadata: { reason: auth.reason },
+      ipAddress: clientIp,
+      userAgent: userAgent,
+    }).catch(() => {});
+
+    return {
+      success: false,
+      error: 'Document not found or access denied',
+      notFoundOrDenied: true,
+    };
+  }
+
+  // 2. Call Atomic Database Procedure
+  try {
+    const { data: rows, error: rpcError } = await adminClient.rpc(
+      'soft_delete_document_and_audit',
+      {
+        p_actor_id: userId,
+        p_document_id: documentId,
+        p_ip_address: clientIp || null,
+        p_user_agent: userAgent || null,
+      }
+    );
+
+    if (rpcError || !rows || rows.length === 0) {
+      return {
+        success: false,
+        error: rpcError?.message || 'Database soft deletion failed',
+      };
+    }
+
+    const row = rows[0];
+    return {
+      success: true,
+      deletedAt: row.deleted_at,
+      auditSequenceNumber: row.audit_sequence_number?.toString(),
+    };
+  } catch (err) {
+    if (err instanceof AuditLoggingError) throw err;
+    return {
+      success: false,
+      error: 'An internal error occurred while soft-deleting document',
+    };
+  }
+}
+

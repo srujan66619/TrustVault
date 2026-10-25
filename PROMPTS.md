@@ -767,6 +767,178 @@ This document tracks all user prompts, assistant outputs, architectural critique
 * **Real Git Commit Hash / Link**:
   [8fc534d](https://github.com/srujan66619/TrustVault/commit/8fc534d)
 
+---
+
+## 10. Prompt: Phase 7 — Secure Document Dashboard, Metadata Management & Soft Deletion
+
+* **Prompt received from user**:
+  ```text
+  Begin Phase 7: Secure document dashboard, metadata management, and soft deletion.
+
+  Prerequisite: Phase 6, including its `PROMPTS.md` commit-link update, is committed and pushed.
+
+  Goal: turn the secure document routes into a usable protected document-management workflow. Add document dashboard UI, safe metadata editing, search filters, and owner-only soft deletion. Do not add public links, document content replacement, permanent deletion, bulk export, or the admin activity dashboard yet.
+
+  First inspect the existing document routes, `authorize()` actions, current migrations, Storage bucket, audit helpers, and deployed Supabase schema through MCP. Do not edit an already-applied migration; add new timestamped migrations only.
+
+  Security model:
+  - Dashboard data must come only from protected server routes or server-side rendering using the current authenticated session.
+  - Never make an authorization decision in a client component.
+  - Use the central `authorize(userId, documentId, action)` module:
+    - READ for viewing metadata;
+    - DOWNLOAD for downloading;
+    - EDIT for metadata edits;
+    - DELETE for soft deletion.
+  - In this phase, EDIT means editing only safe metadata: display name and category. It does not imply content replacement, which remains explicitly unbuilt.
+  - Only the document owner may soft-delete.
+  - A soft-deleted document must immediately disappear from list/search, metadata, permissions, and download results.
+  - Return the same generic external response for unknown, forbidden, and soft-deleted document IDs.
+  - All allowed and denied metadata-update/delete attempts must be audit-logged through the existing tamper-evident audit mechanism.
+  - Allowed mutation must fail closed if audit recording fails.
+
+  Database and route requirements:
+  - Create server-only, least-privilege atomic procedures for:
+    - metadata update plus audit event;
+    - soft deletion plus audit event.
+  - Procedures must independently validate active actor, current authorization-relevant owner/grant state, valid input, and non-deleted document status.
+  - Revoke direct document-table UPDATE/DELETE privileges from service_role if controlled procedures can perform these operations.
+  - Keep Storage objects private. Soft deletion must not directly erase a Storage object or audit history in this phase; document the retained-object cleanup risk.
+  - Add protected routes for metadata update and soft deletion.
+  - Extend safe list/search filtering with category, created-date range, and owner filtering, but apply every filter inside the database query after permission filtering. Never leak inaccessible document titles, owner details, or categories.
+  - Validate every body/query parameter with Zod and enforce strict length, date, pagination, and search limits.
+
+  UI requirements:
+  - Replace the Documents navigation placeholder with a protected responsive document dashboard.
+  - Include: upload form, accessible document list, safe search/filter controls, download action, metadata edit control only when EDIT is allowed, delete control only when DELETE is allowed, owner-only permission-management link/panel, clear empty, loading, error, and "not authorized" states.
+  - Keep the existing 3D visual style, but prioritize readability and accessibility.
+  - Do not render untrusted filenames or metadata as HTML.
+  - Clearly label content replacement, permanent deletion, admin activity, and bulk management as not built.
+
+  Tests:
+  - Add real tests for all required security constraints.
+  - Run live Supabase verification through MCP, then run test, lint, and production build.
+  - Update README/API docs, THREATS.md, and PROMPTS.md.
+  - End with exact files changed, actual migrations/tests, unresolved risks, three hostile-reviewer concerns, suggested commit message, and Git commands.
+  - Stop and wait for approval before Phase 8.
+  ```
+
+* **What was planned & executed**:
+  1. **Live Supabase Schema Migration (`20261025020000_document_metadata_and_soft_delete_procedures.sql`)**:
+     - Revoked direct `UPDATE`, `DELETE`, and `TRUNCATE` privileges on `public.documents` from `anon`, `authenticated`, and `service_role`.
+     - Created `public.update_document_metadata_and_audit(...)`: validates actor status, non-deleted status, owner or active EDIT grantee, safe display name, and category. Appends tamper-evident audit log atomically. Granted exclusively to `service_role`.
+     - Created `public.soft_delete_document_and_audit(...)`: enforces owner-only authority, records `deleted_at = now()`, and appends `DELETE` audit log event atomically. Granted exclusively to `service_role`.
+     - Deployed canonical 8-param `list_accessible_documents`: enforces permission scoping before evaluating search query, category, createdAfter, createdBefore, and owner filter (`all`, `mine`, `shared`).
+  2. **Strict Validation & Domain Services**:
+     - `src/lib/documents/validation.ts`: Added `updateDocumentMetadataSchema.strict()` and `listDocumentsQuerySchema` with strict date parsing, search limits, and mass-assignment prevention.
+     - `src/lib/documents/documents.ts`: Implemented `updateDocumentMetadata` and `softDeleteDocument` with centralized `authorize()` gating, fail-closed audit handling, and anti-enumeration generic errors.
+  3. **Route Handlers**:
+     - `src/app/api/documents/[id]/route.ts`: Added `PATCH` (metadata edit) and `DELETE` (soft-delete), returning uniform 404 for nonexistent, forbidden, or soft-deleted records.
+     - `src/app/api/documents/route.ts`: Extended `GET` with strict query validation for extended search filters.
+  4. **Document Dashboard UI (`/documents`)**:
+     - `src/app/layout.tsx`: Activated Documents navigation link.
+     - `src/app/documents/page.tsx`: Protected server route with `requireAuth()`.
+     - `src/app/documents/DocumentDashboard.tsx`: Cyber-vault styled responsive dashboard with upload form, filter bar, document cards with permission badges, safe text rendering, role-gated edit/delete modals, sharing manager links, and clear disclosures for explicitly unbuilt features.
+  5. **Live & Automated Verification**:
+     - Live database security suite (`supabase/verify_phase7_security.sql`) passed all 13 checks live in Supabase via MCP.
+     - Automated test suite (`tests/documents.test.ts`) expanded with 24 Phase 7 tests. Total test count across workspace reached 112 tests (100% passing).
+     - ESLint passed cleanly with 0 errors and 0 warnings.
+     - Next.js production build compiled cleanly.
+  6. **Documentation**:
+     - Updated `README.md` with Phase 7 baseline, API docs, and unbuilt features.
+     - Updated `THREATS.md` with Section 11 threat analysis matrix.
+
+* **Real Git Commit Hash / Link**:
+  *Pending user review, approval, and commit.*
+
+---
+
+## 11. Prompt: Phase 7 Verification — Final Least-Privilege & Real Mutation Proof
+
+* **Prompt received from user**:
+  ```text
+  Phase 7 needs final least-privilege and real mutation-proof verification before commit.
+
+  1. Inspect live table privileges for `anon`, `authenticated`, and `service_role` on `public.documents` for SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, and TRIGGER.
+
+  - No role may directly INSERT, UPDATE, DELETE, or TRUNCATE document rows.
+  - If any direct mutation privilege remains, create a new timestamped corrective migration:
+    - revoke all document-table privileges from the affected role;
+    - grant only the minimum required read privilege;
+    - preserve document creation, metadata update, and soft-delete only through their `SECURITY DEFINER` procedures.
+  - Add live tests proving direct document INSERT, UPDATE, DELETE, and TRUNCATE are denied for browser roles and `service_role`.
+
+  2. Perform real temporary mutation walkthroughs on the production source:
+
+  - Temporarily remove or bypass the actual `authorize(userId, documentId, 'EDIT')` check in the production metadata-update path. Run the relevant normal test command and capture its failure.
+  - Restore the exact production source.
+  - Temporarily remove or bypass the actual `authorize(userId, documentId, 'DELETE')` check in the production soft-delete path. Run the relevant normal test command and capture its failure.
+  - Restore the exact production source.
+  - Rerun the full untouched suite, lint, and production build.
+  - Do not commit either temporary mutation.
+
+  Update `THREATS.md` and `PROMPTS.md` truthfully with the privilege audit and actual mutation failures. Return the live privilege output, failing test outputs, restoration confirmation, and final clean results. Stop for approval before commit.
+  ```
+
+* **What was planned & executed**:
+  1. **Live Table Privilege Audit & Corrective Migration (`20261025030000_documents_least_privilege_lockdown.sql`)**:
+     - Queried `information_schema.table_privileges` on `public.documents` via Supabase MCP:
+       - Found residual privileges: `service_role` had direct `INSERT`, `REFERENCES`, `TRIGGER`; `anon` and `authenticated` had `REFERENCES`, `TRIGGER`.
+     - Created and deployed migration `supabase/migrations/20261025030000_documents_least_privilege_lockdown.sql`:
+       ```sql
+       REVOKE ALL ON TABLE public.documents FROM anon, authenticated, service_role;
+       GRANT SELECT ON TABLE public.documents TO authenticated, service_role;
+       ```
+     - Re-inspected live table privileges via Supabase MCP:
+       - `authenticated`: strictly `SELECT`
+       - `service_role`: strictly `SELECT`
+       - `anon`: 0 table privileges
+       - Direct `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, and `TRIGGER` are 100% revoked across all roles.
+     - Document creation, metadata edits, and soft-delete operate exclusively through audited `SECURITY DEFINER` procedures (`create_document_and_audit`, `update_document_metadata_and_audit`, `soft_delete_document_and_audit`).
+     - Added live automated tests in `tests/documents.test.ts` and `supabase/verify_phase7_security.sql` proving direct `INSERT`, `UPDATE`, `DELETE`, and `TRUNCATE` fail for browser roles (`anon`) and `service_role`.
+
+  2. **Real Temporary Mutation Walkthrough 1 — Bypass `authorize(..., 'EDIT')`**:
+     - Production source mutated: [`src/lib/documents/documents.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/documents/documents.ts) lines 498-515.
+     - Mutation applied: Bypassed the central authorization check in `updateDocumentMetadata`:
+       ```typescript
+       // const auth = await authorize(userId, documentId, 'EDIT');
+       // if (!auth.allowed) { ... return { success: false, error: 'Document not found or access denied', notFoundOrDenied: true }; }
+       const auth = { allowed: true, isOwner: false, grantPermission: 'READ' as const, reason: undefined };
+       ```
+     - Ran test command: `npx vitest run tests/documents.test.ts`.
+     - Failing test output captured (3 tests failed):
+       - `denies READ grantee metadata update and audits denial`: `AssertionError: expected undefined to be true` (did not return `notFoundOrDenied`).
+       - `owner successfully updates metadata and soft-deletes with atomic audit recording`: `AssertionError: expected false to be true` (mocked permission mismatch).
+       - `proves PATCH /api/documents/[id] returns generic 404 and NEVER calls update database procedure for READ grantee`: `AssertionError: expected 400 to be 404` (bypassed route returned validation error instead of generic 404).
+     - Restored exact original production source in `src/lib/documents/documents.ts`.
+
+  3. **Real Temporary Mutation Walkthrough 2 — Bypass `authorize(..., 'DELETE')`**:
+     - Production source mutated: [`src/lib/documents/documents.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/documents/documents.ts) lines 599-616.
+     - Mutation applied: Bypassed the central authorization check in `softDeleteDocument`:
+       ```typescript
+       // const auth = await authorize(userId, documentId, 'DELETE');
+       // if (!auth.allowed) { ... return { success: false, error: 'Document not found or access denied', notFoundOrDenied: true }; }
+       const auth = { allowed: true, isOwner: true, grantPermission: null, reason: undefined };
+       ```
+     - Ran test command: `npx vitest run tests/documents.test.ts`.
+     - Failing test output captured (4 tests failed):
+       - `denies EDIT grantee soft-deletion and audits denial`: `AssertionError: expected undefined to be true` (did not return `notFoundOrDenied`).
+       - `denies unrelated user soft-deletion and audits denial`: `AssertionError: expected undefined to be true` (did not return `notFoundOrDenied`).
+       - `proves DELETE /api/documents/[id] returns generic 404 and NEVER calls delete database procedure for EDIT grantee`: `AssertionError: expected 400 to be 404` (bypassed route reached procedure call).
+       - `proves DELETE /api/documents/[id] returns generic 404 and NEVER calls delete database procedure for unrelated user`: `AssertionError: expected 400 to be 404` (bypassed route reached procedure call).
+     - Restored exact original production source in `src/lib/documents/documents.ts`.
+
+  4. **Restoration & Full Suite Clean Verification**:
+     - Confirmed clean working tree on `src/lib/documents/documents.ts` via `git diff`: 0 mutation lines remaining.
+     - Full test suite: **113 / 113 tests passed across all 4 test files** (`tests/authorization.test.ts`, `tests/audit.test.ts`, `tests/permissions.test.ts`, `tests/documents.test.ts`).
+     - ESLint: **0 errors, 0 warnings** (exit code 0).
+     - Next.js production build: **Compiled successfully in Turbopack, TypeScript checked, 10 routes generated** (exit code 0).
+     - Updated `THREATS.md` with **P7-09** documenting complete least-privilege lockdown on `public.documents`.
+
+* **Real Git Commit Hash / Link**:
+  *Pending user review, approval, and commit.*
+
+
+
 
 
 

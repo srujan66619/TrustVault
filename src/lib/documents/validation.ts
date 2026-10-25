@@ -51,6 +51,71 @@ export const documentMetadataInputSchema = z.object({
 
 export type DocumentMetadataInput = z.infer<typeof documentMetadataInputSchema>;
 
+/**
+ * Zod schema for updating safe document metadata (display name and category only).
+ * Prohibits mass-assignment of internal fields (id, owner_id, storage_key, deleted_at, size, content_type).
+ */
+export const updateDocumentMetadataSchema = z
+  .object({
+    displayName: z
+      .string()
+      .trim()
+      .min(1, 'Display name cannot be empty')
+      .max(255, 'Display name cannot exceed 255 characters')
+      .refine((val) => !/[\x00-\x1F\x7F]/.test(val), {
+        message: 'Display name cannot contain control characters',
+      })
+      .refine((val) => !/[<>]/.test(val), {
+        message: 'Display name cannot contain HTML brackets',
+      })
+      .refine((val) => !/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(val), {
+        message: 'Display name cannot contain path traversal sequences',
+      }),
+    category: z.enum(ALLOWED_CATEGORIES, {
+      message: 'Invalid category: must be general, financial, legal, personal, or technical',
+    }),
+  })
+  .strict();
+
+export type UpdateDocumentMetadataInput = z.infer<typeof updateDocumentMetadataSchema>;
+
+/**
+ * Zod schema for validating query parameters on document list and search.
+ */
+export const listDocumentsQuerySchema = z
+  .object({
+    search: z
+      .string()
+      .trim()
+      .max(100, 'Search query cannot exceed 100 characters')
+      .refine((val) => !/[\x00-\x1F\x7F]/.test(val), {
+        message: 'Search query cannot contain control characters',
+      })
+      .optional()
+      .nullable(),
+    category: z.enum(ALLOWED_CATEGORIES).optional().nullable(),
+    createdAfter: z
+      .string()
+      .refine((val) => !val || !isNaN(Date.parse(val)), {
+        message: 'createdAfter must be a valid ISO 8601 date string',
+      })
+      .optional()
+      .nullable(),
+    createdBefore: z
+      .string()
+      .refine((val) => !val || !isNaN(Date.parse(val)), {
+        message: 'createdBefore must be a valid ISO 8601 date string',
+      })
+      .optional()
+      .nullable(),
+    ownerFilter: z.enum(['all', 'mine', 'shared']).optional().default('all'),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+    offset: z.coerce.number().int().min(0).optional().default(0),
+  })
+  .strict();
+
+export type ListDocumentsQueryInput = z.infer<typeof listDocumentsQuerySchema>;
+
 export interface FileValidationResult {
   isValid: boolean;
   error?: string;

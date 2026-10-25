@@ -1,19 +1,41 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { NextRequest } from 'next/server';
 import {
   validateUploadedFile,
   sanitizeFilename,
   documentMetadataInputSchema,
+  updateDocumentMetadataSchema,
+  listDocumentsQuerySchema,
   MAX_FILE_SIZE_BYTES,
 } from '../src/lib/documents/validation';
 import { authorize } from '../src/lib/authorization/authorize';
 import { AuditLoggingError, logAuditEvent } from '../src/lib/audit/audit';
-import { createClient } from '@supabase/supabase-js';
+import * as auditModule from '../src/lib/audit/audit';
+import * as sessionModule from '../src/lib/auth/session';
+import * as adminModule from '../src/lib/supabase/admin';
+import * as serverSupabaseModule from '../src/lib/supabase/server';
+import {
+  updateDocumentMetadata,
+  softDeleteDocument,
+  listAccessibleDocuments,
+} from '../src/lib/documents/documents';
+import {
+  PATCH as updateMetadataRoute,
+  DELETE as deleteDocumentRoute,
+} from '../src/app/api/documents/[id]/route';
+import { createClient, type User, type SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL =
+process.env.NEXT_PUBLIC_SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mgqrzzbyzuyygufcpaun.supabase.co';
-const SUPABASE_ANON_KEY =
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ncXJ6emJ5enV5eWd1ZmNwYXVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MzY3NjYsImV4cCI6MjEwODMxMjc2Nn0.WAsQeAE_DW56-PywWFp_9IG43Oy0b_UiuJtdg-thSy4';
+process.env.SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ncXJ6emJ5enV5eWd1ZmNwYXVuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjczNjc2NiwiZXhwIjoyMTA4MzEyNzY2fQ.dummy';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 describe('Phase 5: Secure Document Access & File Handling', () => {
   const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -484,3 +506,655 @@ describe('Phase 5: Secure Document Access & File Handling', () => {
     });
   });
 });
+
+describe('Phase 7: Secure Document Dashboard, Metadata Management & Soft Deletion', () => {
+  const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const ownerId = '11111111-1111-4111-8111-111111111111';
+  const editGranteeId = '22222222-2222-4222-8222-222222222222';
+  const readGranteeId = '33333333-3333-4333-8333-333333333333';
+  const unrelatedId = '44444444-4444-4444-8444-444444444444';
+  const disabledId = '55555555-5555-4555-8555-555555555555';
+  const docId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+  const mockFetcher = async (userId: string) => {
+    if (userId === disabledId) {
+      return {
+        user_found: true,
+        user_role: 'VIEWER' as const,
+        user_status: 'DISABLED' as const,
+        doc_found: true,
+        doc_owner_id: ownerId,
+        doc_deleted: false,
+        grant_permission: null,
+      };
+    }
+    if (userId === ownerId) {
+      return {
+        user_found: true,
+        user_role: 'OWNER' as const,
+        user_status: 'ACTIVE' as const,
+        doc_found: true,
+        doc_owner_id: ownerId,
+        doc_deleted: false,
+        grant_permission: null,
+      };
+    }
+    if (userId === editGranteeId) {
+      return {
+        user_found: true,
+        user_role: 'VIEWER' as const,
+        user_status: 'ACTIVE' as const,
+        doc_found: true,
+        doc_owner_id: ownerId,
+        doc_deleted: false,
+        grant_permission: 'EDIT' as const,
+      };
+    }
+    if (userId === readGranteeId) {
+      return {
+        user_found: true,
+        user_role: 'VIEWER' as const,
+        user_status: 'ACTIVE' as const,
+        doc_found: true,
+        doc_owner_id: ownerId,
+        doc_deleted: false,
+        grant_permission: 'READ' as const,
+      };
+    }
+    return {
+      user_found: true,
+      user_role: 'VIEWER' as const,
+      user_status: 'ACTIVE' as const,
+      doc_found: true,
+      doc_owner_id: ownerId,
+      doc_deleted: false,
+      grant_permission: null,
+    };
+  };
+
+  describe('1. Live Database Least-Privilege & Procedure Lockdown', () => {
+    it('verifies anon client CANNOT execute update_document_metadata_and_audit', async () => {
+      const { data, error } = await anonClient.rpc('update_document_metadata_and_audit', {
+        p_actor_id: ownerId,
+        p_document_id: docId,
+        p_display_name: 'Hacked Title',
+        p_category: 'financial',
+      });
+      expect(data).toBeNull();
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/permission denied for function update_document_metadata_and_audit/i);
+    });
+
+    it('verifies anon client CANNOT execute soft_delete_document_and_audit', async () => {
+      const { data, error } = await anonClient.rpc('soft_delete_document_and_audit', {
+        p_actor_id: ownerId,
+        p_document_id: docId,
+      });
+      expect(data).toBeNull();
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/permission denied for function soft_delete_document_and_audit/i);
+    });
+
+    it('verifies anon client CANNOT direct INSERT into public.documents', async () => {
+      const { data, error } = await anonClient
+        .from('documents')
+        .insert({
+          id: docId,
+          owner_id: ownerId,
+          display_name: 'Direct Table Injection.pdf',
+          category: 'general',
+          content_type: 'application/pdf',
+          size_bytes: 1024,
+        });
+      expect(data).toBeNull();
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/permission denied for table documents/i);
+    });
+
+    it('verifies anon client CANNOT direct UPDATE on public.documents', async () => {
+      const { data, error } = await anonClient
+        .from('documents')
+        .update({ display_name: 'Direct Table Hack' })
+        .eq('id', docId);
+      expect(data).toBeNull();
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/permission denied for table documents/i);
+    });
+
+    it('verifies anon client CANNOT direct DELETE from public.documents', async () => {
+      const { data, error } = await anonClient
+        .from('documents')
+        .delete()
+        .eq('id', docId);
+      expect(data).toBeNull();
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/permission denied for table documents/i);
+    });
+  });
+
+  describe('2. Input Validation (Zod & Mass Assignment Protection)', () => {
+    it('accepts valid metadata updates for display_name and category', () => {
+      const parsed = updateDocumentMetadataSchema.safeParse({
+        displayName: 'Quarterly Financials Revised',
+        category: 'financial',
+      });
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.displayName).toBe('Quarterly Financials Revised');
+        expect(parsed.data.category).toBe('financial');
+      }
+    });
+
+    it('rejects overlong titles (> 255 chars)', () => {
+      const parsed = updateDocumentMetadataSchema.safeParse({
+        displayName: 'A'.repeat(256),
+        category: 'financial',
+      });
+      expect(parsed.success).toBe(false);
+    });
+
+    it('rejects HTML brackets and control characters in display name', () => {
+      const htmlParsed = updateDocumentMetadataSchema.safeParse({
+        displayName: 'Secret<script>alert(1)</script>.pdf',
+        category: 'financial',
+      });
+      expect(htmlParsed.success).toBe(false);
+
+      const controlParsed = updateDocumentMetadataSchema.safeParse({
+        displayName: 'Secret\x00Document.pdf',
+        category: 'financial',
+      });
+      expect(controlParsed.success).toBe(false);
+    });
+
+    it('rejects unsupported categories', () => {
+      const parsed = updateDocumentMetadataSchema.safeParse({
+        displayName: 'Valid Name',
+        category: 'unsupported_cat',
+      });
+      expect(parsed.success).toBe(false);
+    });
+
+    it('rejects mass-assignment attempts (strict schema rejection)', () => {
+      const parsed = updateDocumentMetadataSchema.safeParse({
+        displayName: 'Valid Name',
+        category: 'general',
+        owner_id: '44444444-4444-4444-4444-444444444444',
+        deleted_at: null,
+        storage_object_key: 'hacked-key',
+      });
+      expect(parsed.success).toBe(false);
+    });
+
+    it('validates list documents query parameters strictly', () => {
+      const valid = listDocumentsQuerySchema.safeParse({
+        search: 'audit',
+        category: 'financial',
+        ownerFilter: 'mine',
+        limit: '25',
+        offset: '0',
+      });
+      expect(valid.success).toBe(true);
+      if (valid.success) {
+        expect(valid.data.limit).toBe(25);
+        expect(valid.data.ownerFilter).toBe('mine');
+      }
+
+      const invalidFilter = listDocumentsQuerySchema.safeParse({
+        ownerFilter: 'unauthorized_filter',
+      });
+      expect(invalidFilter.success).toBe(false);
+
+      const overlongSearch = listDocumentsQuerySchema.safeParse({
+        search: 'A'.repeat(101),
+      });
+      expect(overlongSearch.success).toBe(false);
+
+      const invalidDate = listDocumentsQuerySchema.safeParse({
+        createdAfter: 'not-a-date',
+      });
+      expect(invalidDate.success).toBe(false);
+    });
+  });
+
+  describe('3. Centralized Authorization Core for EDIT and DELETE Actions', () => {
+    it('allows owner to both EDIT and DELETE', async () => {
+      const editAuth = await authorize(ownerId, docId, 'EDIT', { contextFetcher: mockFetcher });
+      expect(editAuth.allowed).toBe(true);
+      expect(editAuth.isOwner).toBe(true);
+
+      const deleteAuth = await authorize(ownerId, docId, 'DELETE', { contextFetcher: mockFetcher });
+      expect(deleteAuth.allowed).toBe(true);
+      expect(deleteAuth.isOwner).toBe(true);
+    });
+
+    it('allows EDIT grantee to EDIT, but strictly denies DELETE', async () => {
+      const editAuth = await authorize(editGranteeId, docId, 'EDIT', { contextFetcher: mockFetcher });
+      expect(editAuth.allowed).toBe(true);
+      expect(editAuth.grantPermission).toBe('EDIT');
+
+      const deleteAuth = await authorize(editGranteeId, docId, 'DELETE', { contextFetcher: mockFetcher });
+      expect(deleteAuth.allowed).toBe(false);
+      expect(deleteAuth.reason).toBe('UNAUTHORIZED_ACTION');
+    });
+
+    it('strictly denies READ grantee from both EDIT and DELETE', async () => {
+      const editAuth = await authorize(readGranteeId, docId, 'EDIT', { contextFetcher: mockFetcher });
+      expect(editAuth.allowed).toBe(false);
+      expect(editAuth.reason).toBe('UNAUTHORIZED_ACTION');
+
+      const deleteAuth = await authorize(readGranteeId, docId, 'DELETE', { contextFetcher: mockFetcher });
+      expect(deleteAuth.allowed).toBe(false);
+      expect(deleteAuth.reason).toBe('UNAUTHORIZED_ACTION');
+    });
+
+    it('strictly denies unrelated user from EDIT and DELETE via IDOR', async () => {
+      const editAuth = await authorize(unrelatedId, docId, 'EDIT', { contextFetcher: mockFetcher });
+      expect(editAuth.allowed).toBe(false);
+      expect(editAuth.reason).toBe('NOT_FOUND_OR_DENIED');
+
+      const deleteAuth = await authorize(unrelatedId, docId, 'DELETE', { contextFetcher: mockFetcher });
+      expect(deleteAuth.allowed).toBe(false);
+      expect(deleteAuth.reason).toBe('NOT_FOUND_OR_DENIED');
+    });
+
+    it('immediately denies disabled user even if they are the owner', async () => {
+      const editAuth = await authorize(disabledId, docId, 'EDIT', { contextFetcher: mockFetcher });
+      expect(editAuth.allowed).toBe(false);
+      expect(editAuth.reason).toBe('ACCOUNT_DISABLED');
+
+      const deleteAuth = await authorize(disabledId, docId, 'DELETE', { contextFetcher: mockFetcher });
+      expect(deleteAuth.allowed).toBe(false);
+      expect(deleteAuth.reason).toBe('ACCOUNT_DISABLED');
+    });
+
+    it('soft deletion immediately blocks READ, DOWNLOAD, EDIT, DELETE, and GRANT', async () => {
+      const softDeletedFetcher = async () => ({
+        user_found: true,
+        user_role: 'OWNER' as const,
+        user_status: 'ACTIVE' as const,
+        doc_found: true,
+        doc_owner_id: ownerId,
+        doc_deleted: true,
+        grant_permission: null,
+      });
+
+      for (const action of ['READ', 'DOWNLOAD', 'EDIT', 'DELETE', 'GRANT', 'REVOKE'] as const) {
+        const auth = await authorize(ownerId, docId, action, { contextFetcher: softDeletedFetcher });
+        expect(auth.allowed).toBe(false);
+        expect(auth.reason).toBe('NOT_FOUND_OR_DENIED');
+      }
+    });
+  });
+
+  describe('4. Domain Service & Anti-Enumeration Protections', () => {
+    it('denies READ grantee metadata update and audits denial', async () => {
+      const logAuditSpy = vi.spyOn(auditModule, 'logAuditEvent');
+
+      vi.spyOn(serverSupabaseModule, 'createClient').mockResolvedValue({
+        rpc: vi.fn().mockImplementation((fn: string) => {
+          if (fn === 'get_authorization_context') {
+            return Promise.resolve({
+              data: {
+                user_found: true,
+                user_role: 'VIEWER',
+                user_status: 'ACTIVE',
+                doc_found: true,
+                doc_owner_id: ownerId,
+                doc_deleted: false,
+                grant_permission: 'READ',
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const result = await updateDocumentMetadata(
+        readGranteeId,
+        docId,
+        { displayName: 'Hacked Title', category: 'financial' }
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.notFoundOrDenied).toBe(true);
+
+      expect(logAuditSpy).toHaveBeenCalled();
+      const lastCall = logAuditSpy.mock.calls[logAuditSpy.mock.calls.length - 1][0];
+      expect(lastCall.action).toBe('EDIT');
+      expect(lastCall.result).toBe('ACCESS_DENIED');
+      expect(lastCall.actorId).toBe(readGranteeId);
+      expect(lastCall.documentId).toBe(docId);
+    });
+
+    it('denies EDIT grantee soft-deletion and audits denial', async () => {
+      const logAuditSpy = vi.spyOn(auditModule, 'logAuditEvent');
+
+      vi.spyOn(serverSupabaseModule, 'createClient').mockResolvedValue({
+        rpc: vi.fn().mockImplementation((fn: string) => {
+          if (fn === 'get_authorization_context') {
+            return Promise.resolve({
+              data: {
+                user_found: true,
+                user_role: 'VIEWER',
+                user_status: 'ACTIVE',
+                doc_found: true,
+                doc_owner_id: ownerId,
+                doc_deleted: false,
+                grant_permission: 'EDIT',
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const result = await softDeleteDocument(editGranteeId, docId);
+
+      expect(result.success).toBe(false);
+      expect(result.notFoundOrDenied).toBe(true);
+
+      expect(logAuditSpy).toHaveBeenCalled();
+      const lastCall = logAuditSpy.mock.calls[logAuditSpy.mock.calls.length - 1][0];
+      expect(lastCall.action).toBe('DELETE');
+      expect(lastCall.result).toBe('ACCESS_DENIED');
+      expect(lastCall.actorId).toBe(editGranteeId);
+      expect(lastCall.documentId).toBe(docId);
+    });
+
+    it('denies unrelated user soft-deletion and audits denial', async () => {
+      const logAuditSpy = vi.spyOn(auditModule, 'logAuditEvent');
+
+      vi.spyOn(serverSupabaseModule, 'createClient').mockResolvedValue({
+        rpc: vi.fn().mockImplementation((fn: string) => {
+          if (fn === 'get_authorization_context') {
+            return Promise.resolve({
+              data: {
+                user_found: true,
+                user_role: 'VIEWER',
+                user_status: 'ACTIVE',
+                doc_found: true,
+                doc_owner_id: ownerId,
+                doc_deleted: false,
+                grant_permission: null,
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const result = await softDeleteDocument(unrelatedId, docId);
+
+      expect(result.success).toBe(false);
+      expect(result.notFoundOrDenied).toBe(true);
+
+      expect(logAuditSpy).toHaveBeenCalled();
+      const lastCall = logAuditSpy.mock.calls[logAuditSpy.mock.calls.length - 1][0];
+      expect(lastCall.action).toBe('DELETE');
+      expect(lastCall.result).toBe('ACCESS_DENIED');
+      expect(lastCall.metadata?.reason).toBe('NOT_FOUND_OR_DENIED');
+    });
+
+    it('owner successfully updates metadata and soft-deletes with atomic audit recording', async () => {
+      const adminRpcSpy = vi.fn();
+      vi.spyOn(adminModule, 'createAdminClient').mockReturnValue({
+        rpc: vi.fn().mockImplementation((procedureName: string) => {
+          adminRpcSpy(procedureName);
+          if (procedureName === 'update_document_metadata_and_audit') {
+            return Promise.resolve({
+              data: [{
+                id: docId,
+                owner_id: ownerId,
+                display_name: 'Updated Financials',
+                category: 'financial',
+                content_type: 'application/pdf',
+                size_bytes: 1024,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                audit_sequence_number: 101,
+              }],
+              error: null,
+            });
+          }
+          if (procedureName === 'soft_delete_document_and_audit') {
+            return Promise.resolve({
+              data: [{
+                id: docId,
+                deleted_at: new Date().toISOString(),
+                audit_sequence_number: 102,
+              }],
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      vi.spyOn(serverSupabaseModule, 'createClient').mockResolvedValue({
+        rpc: vi.fn().mockImplementation((fn: string) => {
+          if (fn === 'get_authorization_context') {
+            return Promise.resolve({
+              data: {
+                user_found: true,
+                user_role: 'OWNER',
+                user_status: 'ACTIVE',
+                doc_found: true,
+                doc_owner_id: ownerId,
+                doc_deleted: false,
+                grant_permission: null,
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const updateRes = await updateDocumentMetadata(
+        ownerId,
+        docId,
+        { displayName: 'Updated Financials', category: 'financial' }
+      );
+      expect(updateRes.success).toBe(true);
+      expect(updateRes.document?.displayName).toBe('Updated Financials');
+      expect(String(updateRes.auditSequenceNumber)).toBe('101');
+
+      const deleteRes = await softDeleteDocument(ownerId, docId);
+      expect(deleteRes.success).toBe(true);
+      expect(String(deleteRes.auditSequenceNumber)).toBe('102');
+      expect(adminRpcSpy).toHaveBeenCalledWith('update_document_metadata_and_audit');
+      expect(adminRpcSpy).toHaveBeenCalledWith('soft_delete_document_and_audit');
+    });
+
+    it('extended in-database list filtering passes filters to RPC and rejects disabled user', async () => {
+      const adminRpcSpy = vi.fn();
+      vi.spyOn(adminModule, 'createAdminClient').mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { status: 'ACTIVE' }, error: null }),
+            }),
+          }),
+        }),
+        rpc: vi.fn().mockImplementation((fn: string, args: Record<string, unknown>) => {
+          adminRpcSpy(fn, args);
+          return Promise.resolve({ data: [], error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const docs = await listAccessibleDocuments(ownerId, {
+        search: 'quarterly',
+        category: 'financial',
+        createdAfter: '2026-01-01T00:00:00Z',
+        createdBefore: '2026-12-31T23:59:59Z',
+        ownerFilter: 'mine',
+        limit: 20,
+        offset: 0,
+      });
+
+      expect(Array.isArray(docs)).toBe(true);
+      expect(adminRpcSpy).toHaveBeenCalledWith('list_accessible_documents', expect.objectContaining({
+        p_user_id: ownerId,
+        p_search: 'quarterly',
+        p_category: 'financial',
+        p_owner_filter: 'mine',
+      }));
+    });
+  });
+
+  describe('5. Route-Level Handlers & Mutation Resistance', () => {
+    it('proves PATCH /api/documents/[id] returns generic 404 and NEVER calls update database procedure for READ grantee', async () => {
+      vi.spyOn(sessionModule, 'requireAuth').mockResolvedValue({
+        user: { id: readGranteeId, email: 'read@example.com' } as unknown as User,
+        profile: { id: readGranteeId, role: 'VIEWER', status: 'ACTIVE', created_at: '', updated_at: '' },
+        isActive: true,
+      });
+
+      vi.spyOn(serverSupabaseModule, 'createClient').mockResolvedValue({
+        rpc: vi.fn().mockImplementation((fn: string) => {
+          if (fn === 'get_authorization_context') {
+            return Promise.resolve({
+              data: {
+                user_found: true,
+                user_role: 'VIEWER',
+                user_status: 'ACTIVE',
+                doc_found: true,
+                doc_owner_id: ownerId,
+                doc_deleted: false,
+                grant_permission: 'READ',
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const updateRpcSpy = vi.fn();
+      vi.spyOn(adminModule, 'createAdminClient').mockReturnValue({
+        rpc: vi.fn().mockImplementation((procedureName: string, args: unknown) => {
+          if (procedureName === 'update_document_metadata_and_audit') {
+            updateRpcSpy(procedureName, args);
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const req = new NextRequest(`http://localhost:3000/api/documents/${docId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: 'Tampered Title', category: 'financial' }),
+      });
+
+      const res = await updateMetadataRoute(req, { params: Promise.resolve({ id: docId }) });
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe('Document not found or access denied');
+      expect(updateRpcSpy).not.toHaveBeenCalled();
+    });
+
+    it('proves DELETE /api/documents/[id] returns generic 404 and NEVER calls delete database procedure for EDIT grantee', async () => {
+      vi.spyOn(sessionModule, 'requireAuth').mockResolvedValue({
+        user: { id: editGranteeId, email: 'edit@example.com' } as unknown as User,
+        profile: { id: editGranteeId, role: 'VIEWER', status: 'ACTIVE', created_at: '', updated_at: '' },
+        isActive: true,
+      });
+
+      vi.spyOn(serverSupabaseModule, 'createClient').mockResolvedValue({
+        rpc: vi.fn().mockImplementation((fn: string) => {
+          if (fn === 'get_authorization_context') {
+            return Promise.resolve({
+              data: {
+                user_found: true,
+                user_role: 'VIEWER',
+                user_status: 'ACTIVE',
+                doc_found: true,
+                doc_owner_id: ownerId,
+                doc_deleted: false,
+                grant_permission: 'EDIT',
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const deleteRpcSpy = vi.fn();
+      vi.spyOn(adminModule, 'createAdminClient').mockReturnValue({
+        rpc: vi.fn().mockImplementation((procedureName: string, args: unknown) => {
+          if (procedureName === 'soft_delete_document_and_audit') {
+            deleteRpcSpy(procedureName, args);
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const req = new NextRequest(`http://localhost:3000/api/documents/${docId}`, {
+        method: 'DELETE',
+      });
+
+      const res = await deleteDocumentRoute(req, { params: Promise.resolve({ id: docId }) });
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe('Document not found or access denied');
+      expect(deleteRpcSpy).not.toHaveBeenCalled();
+    });
+
+    it('proves DELETE /api/documents/[id] returns generic 404 and NEVER calls delete database procedure for unrelated user', async () => {
+      vi.spyOn(sessionModule, 'requireAuth').mockResolvedValue({
+        user: { id: unrelatedId, email: 'unrelated@example.com' } as unknown as User,
+        profile: { id: unrelatedId, role: 'VIEWER', status: 'ACTIVE', created_at: '', updated_at: '' },
+        isActive: true,
+      });
+
+      vi.spyOn(serverSupabaseModule, 'createClient').mockResolvedValue({
+        rpc: vi.fn().mockImplementation((fn: string) => {
+          if (fn === 'get_authorization_context') {
+            return Promise.resolve({
+              data: {
+                user_found: true,
+                user_role: 'VIEWER',
+                user_status: 'ACTIVE',
+                doc_found: true,
+                doc_owner_id: ownerId,
+                doc_deleted: false,
+                grant_permission: null,
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const deleteRpcSpy = vi.fn();
+      vi.spyOn(adminModule, 'createAdminClient').mockReturnValue({
+        rpc: vi.fn().mockImplementation((procedureName: string, args: unknown) => {
+          if (procedureName === 'soft_delete_document_and_audit') {
+            deleteRpcSpy(procedureName, args);
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const req = new NextRequest(`http://localhost:3000/api/documents/${docId}`, {
+        method: 'DELETE',
+      });
+
+      const res = await deleteDocumentRoute(req, { params: Promise.resolve({ id: docId }) });
+      expect(res.status).toBe(404);
+      expect(deleteRpcSpy).not.toHaveBeenCalled();
+    });
+  });
+});
+

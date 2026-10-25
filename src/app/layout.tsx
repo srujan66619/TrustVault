@@ -44,15 +44,12 @@ export default function RootLayout({
               >
                 Account
               </Link>
-              <span
-                className="text-slate-500 cursor-not-allowed hidden sm:inline-flex items-center gap-1.5"
-                title="Documents placeholder (Scheduled for Phase 5)"
+              <Link
+                href="/documents"
+                className="text-slate-300 hover:text-white transition-colors"
               >
                 Documents
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-slate-800/80 text-slate-400 rounded">
-                  Pending Phase 5
-                </span>
-              </span>
+              </Link>
               <span
                 className="text-slate-500 cursor-not-allowed hidden sm:inline-flex items-center gap-1.5"
                 title="Activity log placeholder (Scheduled for Phase 4)"
