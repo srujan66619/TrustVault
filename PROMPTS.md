@@ -848,7 +848,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
      - Updated `THREATS.md` with Section 11 threat analysis matrix.
 
 * **Real Git Commit Hash / Link**:
-  *Pending user review, approval, and commit.*
+  [90351c8](https://github.com/srujan66619/TrustVault/commit/90351c8)
 
 ---
 
@@ -935,7 +935,7 @@ This document tracks all user prompts, assistant outputs, architectural critique
      - Updated `THREATS.md` with **P7-09** documenting complete least-privilege lockdown on `public.documents`.
 
 * **Real Git Commit Hash / Link**:
-  *Pending user review, approval, and commit.*
+  [90351c8](https://github.com/srujan66619/TrustVault/commit/90351c8)
 
 
 
