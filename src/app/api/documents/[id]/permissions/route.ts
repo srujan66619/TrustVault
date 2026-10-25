@@ -45,6 +45,9 @@ export async function GET(
   }
 }
 
+import { validateSameOrigin } from '@/lib/security/csrf';
+import { checkPermissionsRateLimit } from '@/lib/security/rateLimit';
+
 /**
  * POST /api/documents/[id]/permissions
  * Grants or updates READ or EDIT permissions on a document.
@@ -54,11 +57,22 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const originCheck = validateSameOrigin(req);
+  if (!originCheck.valid && originCheck.errorResponse) {
+    return originCheck.errorResponse;
+  }
+
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
   const userAgent = req.headers.get('user-agent');
 
   try {
     const session = await requireAuth();
+
+    const permLimit = checkPermissionsRateLimit(session.user.id);
+    if (!permLimit.allowed && permLimit.errorResponse) {
+      return permLimit.errorResponse;
+    }
+
     const { id: documentId } = await context.params;
 
     if (!documentId || !UUID_REGEX.test(documentId)) {

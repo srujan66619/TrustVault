@@ -8,6 +8,9 @@ import { sanitizeFilename, listDocumentsQuerySchema } from '@/lib/documents/vali
 import { logAuditEvent } from '@/lib/audit/audit';
 
 
+import { validateSameOrigin } from '@/lib/security/csrf';
+import { checkUploadRateLimit } from '@/lib/security/rateLimit';
+
 /**
  * POST /api/documents
  * Secure document upload endpoint.
@@ -17,11 +20,21 @@ import { logAuditEvent } from '@/lib/audit/audit';
  * - 'category': optional category string
  */
 export async function POST(req: NextRequest) {
+  const originCheck = validateSameOrigin(req);
+  if (!originCheck.valid && originCheck.errorResponse) {
+    return originCheck.errorResponse;
+  }
+
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
   const userAgent = req.headers.get('user-agent');
 
   try {
     const session = await requireAuth();
+
+    const uploadLimit = checkUploadRateLimit(session.user.id);
+    if (!uploadLimit.allowed && uploadLimit.errorResponse) {
+      return uploadLimit.errorResponse;
+    }
 
     const formData = await req.formData();
     const file = formData.get('file');

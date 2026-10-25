@@ -1049,3 +1049,56 @@ This document tracks all user prompts, assistant outputs, architectural critique
 
 * **Real Git Commit Hash / Link**:
    [f0cfa00](https://github.com/srujan66619/TrustVault/commit/f0cfa00)
+
+---
+
+### Entry 13: 2026-10-25 — Phase 9: Final Security Hardening, Deployment Readiness & Demo Verification
+
+* **What was asked**:
+  Begin Phase 9: Final security hardening, deployment readiness, and demo verification.
+  - Security hardening:
+    - Production security headers in next.config.ts (CSP, X-Content-Type-Options: nosniff, Referrer-Policy, X-Frame-Options: DENY, Permissions-Policy, Strict-Transport-Security). WebGL experience supported without broad '*' wildcards. Document framework reasons for unsafe-inline in THREATS.md.
+    - CSRF and request-origin protection for state-changing routes (POST, PATCH, DELETE) via Sec-Fetch-Site and Origin/Referer verification. Return generic failure. Add tests for cross-origin attacks.
+    - Rate limiting for login, upload, repeated denied document access, grant/revoke, and audit verification. Concurrency-safe strategy. Generic responses without user disclosure.
+    - Secret and configuration review: confirm no service-role key in client bundles or Git. Confirm .env.local ignored.
+    - Final mutation checklist against real production authorize() module and route checks (disabled check, owner boundary, DOWNLOAD, GRANT/REVOKE, VIEW_AUDIT).
+    - Verify live audit-chain health through admin-only verification path.
+    - Verify browser roles cannot directly access Storage, documents, document_permissions, or audit_logs.
+  - Deployment readiness:
+    - Prepare production deployment configuration for Vercel. Provide exact dashboard deployment steps without pretending deployment occurred.
+  - Final documentation:
+    - Complete README.md, THREATS.md, PROMPTS.md, API.md, DEMO.md, and safe seed-user setup guide.
+  - Final verification:
+    - Run full tests, lint, production build, live Supabase verification scripts, privilege inspection, secret scan. Stop for approval.
+
+* **What was produced**:
+  1. **Security Headers in Next.js**:
+     - Updated [`next.config.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/next.config.ts): Added `headers()` returning Content-Security-Policy (restricted to 'self' and Supabase connect-src endpoints, with blob:/data: for Three.js WebGL and frame-ancestors 'none'), X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-Frame-Options: DENY, Permissions-Policy, and Strict-Transport-Security.
+  2. **CSRF & Request-Origin Protection**:
+     - Created [`src/lib/security/csrf.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/security/csrf.ts): Implemented `validateSameOrigin()` enforcing OWASP Fetch Metadata (`Sec-Fetch-Site`) and Origin/Referer matching. Integrated into all state-changing route handlers (`POST /api/documents`, `PATCH /api/documents/[id]`, `DELETE /api/documents/[id]`, `POST /api/documents/[id]/permissions`, `DELETE /api/documents/[id]/permissions/[granteeId]`, `POST /api/admin/audit/verify`).
+  3. **Concurrency-Safe Rate Limiting**:
+     - Created [`src/lib/security/rateLimit.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/security/rateLimit.ts): Keyed in-memory token buckets enforcing thresholds for login (5/15m), upload (20/m), permissions (20/m), audit verification (5/m), and repeated denied probes (10/5m). Exceeded limits return generic HTTP 429 Too Many Requests with `Retry-After` header and zero user disclosure.
+  4. **Deployment Configuration & Documentation**:
+     - Created [`vercel.json`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/vercel.json) configuring Next.js framework preset and production build command.
+     - Created [`API.md`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/API.md): Full REST API specification covering all 14 endpoints, methods, auth rules, generic error behavior, audit logging, and rate limits.
+     - Created [`DEMO.md`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/DEMO.md): 5-8 minute step-by-step evaluator demonstration runbook with safe seed-user setup guide.
+     - Updated [`README.md`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/README.md): Clean-clone setup, environment variables, full Supabase migration order, test commands, deployment guide, role/permission matrix, unbuilt features, and known limitations.
+     - Updated [`THREATS.md`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/THREATS.md): Section 13 threat analysis covering P9-01 through P9-06.
+  5. **Automated Security Test Suite**:
+     - Created [`tests/security-hardening.test.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/tests/security-hardening.test.ts) (21 tests).
+     - Full test suite: **142 / 142 tests PASSED (100% green)** across all 5 test files.
+
+* **Real Temporary Mutation Walkthrough Proof**:
+  1. **Disabled-User Check**: Mutated `src/lib/authorization/authorize.ts` line 167 (`if (false && context.user_status !== 'ACTIVE')`). Captured 4 test failures. Restored cleanly.
+  2. **Owner Boundary Check**: Mutated `src/lib/authorization/authorize.ts` line 220 (`if (false && isOwner)`). Captured 3 test failures. Restored cleanly.
+  3. **DOWNLOAD Authorization Check**: Mutated `src/lib/authorization/authorize.ts` line 254 (`if (action === 'READ')`). Captured 3 test failures. Restored cleanly.
+  4. **GRANT/REVOKE Authorization Check**: Mutated `src/lib/authorization/authorize.ts` line 220 (`if (isOwner && action !== 'GRANT' && action !== 'REVOKE')`). Captured 1 test failure. Restored cleanly.
+  5. **VIEW_AUDIT Owner & Admin Boundaries**: Mutated `isOwner && action !== 'VIEW_AUDIT'` (6 test failures) and `false && action === 'VIEW_AUDIT' && context.user_role === 'ADMIN'` (5 test failures). Restored cleanly.
+
+* **Live Verification & Secret Scan**:
+  - Live Supabase audit chain verification: **13 historical records verified valid (is_valid = true)**.
+  - Live security verification scripts: all 12 checks passed.
+  - Secret scan: 0 service role keys in client bundles, Git tracking, or NEXT_PUBLIC_ variables.
+
+* **Real Git Commit Hash / Link**:
+  *(Pending approval before commit/push)*

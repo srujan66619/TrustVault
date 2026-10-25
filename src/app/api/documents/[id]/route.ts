@@ -5,6 +5,8 @@ import {
   updateDocumentMetadata,
   softDeleteDocument,
 } from '@/lib/documents/documents';
+import { validateSameOrigin } from '@/lib/security/csrf';
+import { checkDeniedAccessRateLimit } from '@/lib/security/rateLimit';
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,6 +26,12 @@ export async function GET(
 
   try {
     const session = await requireAuth();
+
+    const deniedLimit = checkDeniedAccessRateLimit(session.user.id);
+    if (!deniedLimit.allowed && deniedLimit.errorResponse) {
+      return deniedLimit.errorResponse;
+    }
+
     const { id: documentId } = await context.params;
 
     if (!documentId || !UUID_REGEX.test(documentId)) {
@@ -71,6 +79,11 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const originCheck = validateSameOrigin(req);
+  if (!originCheck.valid && originCheck.errorResponse) {
+    return originCheck.errorResponse;
+  }
+
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
   const userAgent = req.headers.get('user-agent');
 
@@ -143,6 +156,11 @@ export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const originCheck = validateSameOrigin(req);
+  if (!originCheck.valid && originCheck.errorResponse) {
+    return originCheck.errorResponse;
+  }
+
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
   const userAgent = req.headers.get('user-agent');
 

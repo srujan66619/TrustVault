@@ -6,6 +6,9 @@ import { logAuditEvent } from '@/lib/audit/audit';
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+import { validateSameOrigin } from '@/lib/security/csrf';
+import { checkPermissionsRateLimit } from '@/lib/security/rateLimit';
+
 /**
  * DELETE /api/documents/[id]/permissions/[granteeId]
  * Revokes a document grant immediately.
@@ -15,11 +18,22 @@ export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string; granteeId: string }> }
 ) {
+  const originCheck = validateSameOrigin(req);
+  if (!originCheck.valid && originCheck.errorResponse) {
+    return originCheck.errorResponse;
+  }
+
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
   const userAgent = req.headers.get('user-agent');
 
   try {
     const session = await requireAuth();
+
+    const permLimit = checkPermissionsRateLimit(session.user.id);
+    if (!permLimit.allowed && permLimit.errorResponse) {
+      return permLimit.errorResponse;
+    }
+
     const { id: documentId, granteeId } = await context.params;
 
     if (

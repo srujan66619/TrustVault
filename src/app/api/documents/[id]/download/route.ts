@@ -4,6 +4,8 @@ import { downloadDocument } from '@/lib/documents/documents';
 import { sanitizeFilename } from '@/lib/documents/validation';
 
 
+import { checkDeniedAccessRateLimit } from '@/lib/security/rateLimit';
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,6 +24,12 @@ export async function GET(
 
   try {
     const session = await requireAuth();
+
+    const deniedLimit = checkDeniedAccessRateLimit(session.user.id);
+    if (!deniedLimit.allowed && deniedLimit.errorResponse) {
+      return deniedLimit.errorResponse;
+    }
+
     const { id: documentId } = await context.params;
 
     // Reject invalid UUIDs uniformly without leaking existence

@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, AuthenticationError } from '@/lib/auth/session';
 import { getAdminAuditChainSummary } from '@/lib/audit/audit';
+import { validateSameOrigin } from '@/lib/security/csrf';
+import { checkVerifyRateLimit } from '@/lib/security/rateLimit';
 
 async function handleVerification(request: NextRequest) {
   try {
     // 1. Authenticate caller
     const session = await requireAuth();
+
+    // Rate limit audit verification
+    const verifyLimit = checkVerifyRateLimit(session.user.id);
+    if (!verifyLimit.allowed && verifyLimit.errorResponse) {
+      return verifyLimit.errorResponse;
+    }
 
     const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
     const userAgent = request.headers.get('user-agent');
@@ -54,5 +62,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const originCheck = validateSameOrigin(request);
+  if (!originCheck.valid && originCheck.errorResponse) {
+    return originCheck.errorResponse;
+  }
   return handleVerification(request);
 }

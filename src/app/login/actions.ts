@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { checkLoginRateLimit } from '@/lib/security/rateLimit';
 
 export async function signIn(formData: FormData): Promise<void> {
   const email = formData.get('email') as string;
@@ -9,6 +10,11 @@ export async function signIn(formData: FormData): Promise<void> {
 
   if (!email || !password) {
     redirect('/login?error=' + encodeURIComponent('Email and password are required.'));
+  }
+
+  const limit = checkLoginRateLimit(email.toLowerCase().trim());
+  if (!limit.allowed) {
+    redirect('/login?error=' + encodeURIComponent('Too many login attempts. Please try again later.'));
   }
 
   const supabase = await createClient();
