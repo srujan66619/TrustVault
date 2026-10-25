@@ -1144,5 +1144,5 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - Verified production build: Next.js Turbopack compiled with exit code 0.
 
 * **Real Git Commit Hash / Link**:
-  *(Pending approval before commit/push)*
+  [`76c0152`](https://github.com/srujan66619/TrustVault/commit/76c0152)
 
