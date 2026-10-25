@@ -265,7 +265,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-400 mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            Phase 7: Protected Document Vault
+            Protected Document Vault
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white">
             Documents Dashboard
@@ -393,10 +393,10 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
             </form>
           </div>
 
-          {/* Security & Feature Disclosures (Phase 7 Scope Boundaries) */}
+          {/* Vault Integrity Controls */}
           <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-5 space-y-3 text-xs text-slate-400">
             <div className="font-semibold text-slate-300 font-mono text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-              <span>🛡️</span> Security Boundaries (Phase 7)
+              <span>🛡️</span> Vault Integrity Controls
             </div>
             <ul className="space-y-2 text-[11px] leading-relaxed">
               <li className="flex items-start gap-1.5">
@@ -405,15 +405,15 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
               </li>
               <li className="flex items-start gap-1.5">
                 <span className="text-amber-400">⚠</span>
-                <span><strong className="text-slate-300">No Content Replacement:</strong> Document payload replacement is explicitly unbuilt to preserve tamper-proof audit integrity.</span>
+                <span><strong className="text-slate-300">Immutable Content:</strong> Document payload replacement is prevented to preserve tamper-proof audit integrity.</span>
               </li>
               <li className="flex items-start gap-1.5">
                 <span className="text-red-400">✕</span>
                 <span><strong className="text-slate-300">Soft Deletion:</strong> Soft-deleted documents immediately vanish from all routes. Storage objects are retained for recovery audit compliance.</span>
               </li>
               <li className="flex items-start gap-1.5">
-                <span className="text-slate-500">○</span>
-                <span><strong className="text-slate-400">Unbuilt:</strong> Bulk export and Admin Activity dashboard are scheduled for future phases.</span>
+                <span className="text-cyan-400">✓</span>
+                <span><strong className="text-slate-300">Audited Downloads:</strong> Streaming requires valid pre-stream authorization and logs every request.</span>
               </li>
             </ul>
           </div>

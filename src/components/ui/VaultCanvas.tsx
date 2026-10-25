@@ -17,15 +17,15 @@ export default function VaultCanvas() {
       '(prefers-reduced-motion: reduce)'
     ).matches;
 
-    // 1. Scene setup
+    // 1. Three.js Scene & Perspective Camera
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
-      45,
+      42,
       container.clientWidth / container.clientHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 0, 7.5);
+    camera.position.set(0, 0, 7.2);
 
     let renderer: THREE.WebGLRenderer;
     try {
@@ -42,130 +42,204 @@ export default function VaultCanvas() {
       return;
     }
 
-    // 2. Lighting (Deep space cyberpunk lighting)
-    const ambientLight = new THREE.AmbientLight(0x0f172a, 2.5);
+    // 2. High-Fidelity Cybernetic Lighting
+    const ambientLight = new THREE.AmbientLight(0x0b1329, 2.8);
     scene.add(ambientLight);
 
-    const cyanPointLight = new THREE.PointLight(0x06b6d4, 4, 15);
-    cyanPointLight.position.set(3, 4, 4);
+    const cyanPointLight = new THREE.PointLight(0x06b6d4, 4.5, 16);
+    cyanPointLight.position.set(3.5, 4, 4.5);
     scene.add(cyanPointLight);
 
-    const violetPointLight = new THREE.PointLight(0x8b5cf6, 3.5, 15);
-    violetPointLight.position.set(-3, -3, 3);
+    const violetPointLight = new THREE.PointLight(0x8b5cf6, 3.2, 16);
+    violetPointLight.position.set(-3.5, -3.5, 3.5);
     scene.add(violetPointLight);
 
-    // 3. Vault Assembly Group
-    const vaultGroup = new THREE.Group();
-    scene.add(vaultGroup);
+    // Tasteful Unlocking Light Sweep Spotlight
+    const sweepLight = new THREE.SpotLight(0x38bdf8, 5.0, 14, Math.PI / 4, 0.4, 1.2);
+    sweepLight.position.set(0, 3, 5);
+    scene.add(sweepLight);
+    scene.add(sweepLight.target);
 
-    // --- A. Outer Vault Cube (Glassmorphic wireframe & semi-transparent faces) ---
-    const outerBoxGeo = new THREE.BoxGeometry(2.4, 2.4, 2.4);
-    const outerBoxMat = new THREE.MeshPhysicalMaterial({
+    // 3. Master Vault Assembly Group
+    const masterGroup = new THREE.Group();
+    scene.add(masterGroup);
+
+    // Material Palette
+    const gunmetalMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
-      metalness: 0.2,
-      roughness: 0.1,
-      transmission: 0.85,
-      thickness: 0.5,
-      transparent: true,
-      opacity: 0.35,
+      metalness: 0.9,
+      roughness: 0.28,
     });
-    const outerBox = new THREE.Mesh(outerBoxGeo, outerBoxMat);
-    vaultGroup.add(outerBox);
 
-    const outerEdgesGeo = new THREE.EdgesGeometry(outerBoxGeo);
-    const outerEdgesMat = new THREE.LineBasicMaterial({
-      color: 0x06b6d4,
-      linewidth: 1.5,
-      transparent: true,
-      opacity: 0.85,
+    const doorSteelMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      metalness: 0.85,
+      roughness: 0.22,
     });
-    const outerEdges = new THREE.LineSegments(outerEdgesGeo, outerEdgesMat);
-    vaultGroup.add(outerEdges);
 
-    // --- B. Inner Cryptographic Document Core ---
-    const innerCoreGroup = new THREE.Group();
-    vaultGroup.add(innerCoreGroup);
-
-    const coreGeo = new THREE.BoxGeometry(1.2, 1.5, 0.4);
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: 0x1e1b4b,
-      emissive: 0x4338ca,
-      emissiveIntensity: 0.45,
-      metalness: 0.8,
-      roughness: 0.2,
+    const chromeMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      metalness: 0.98,
+      roughness: 0.12,
     });
-    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    innerCoreGroup.add(coreMesh);
 
-    const coreEdgesGeo = new THREE.EdgesGeometry(coreGeo);
-    const coreEdgesMat = new THREE.LineBasicMaterial({
-      color: 0xa855f7,
-      linewidth: 2,
-    });
-    const coreEdges = new THREE.LineSegments(coreEdgesGeo, coreEdgesMat);
-    innerCoreGroup.add(coreEdges);
-
-    // --- C. Orbiting Security Nodes (4 Anchors) ---
-    const nodeGroup = new THREE.Group();
-    vaultGroup.add(nodeGroup);
-    const nodeGeo = new THREE.OctahedronGeometry(0.14, 0);
-    const nodeMat = new THREE.MeshStandardMaterial({
+    const cyanGlowMat = new THREE.MeshStandardMaterial({
       color: 0x22d3ee,
       emissive: 0x06b6d4,
-      emissiveIntensity: 0.9,
+      emissiveIntensity: 2.5,
       roughness: 0.2,
     });
 
-    const nodeDist = 1.9;
-    const nodePositions = [
-      [nodeDist, nodeDist, 0],
-      [-nodeDist, nodeDist, 0],
-      [-nodeDist, -nodeDist, 0],
-      [nodeDist, -nodeDist, 0],
-    ];
-
-    const nodes: THREE.Mesh[] = [];
-    nodePositions.forEach(([x, y, z]) => {
-      const node = new THREE.Mesh(nodeGeo, nodeMat);
-      node.position.set(x, y, z);
-      nodeGroup.add(node);
-      nodes.push(node);
+    const rivetMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      metalness: 0.92,
+      roughness: 0.3,
     });
 
-    // --- D. Lightweight Animated Particle Background ---
-    const particleCount = 120;
-    const particleGeo = new THREE.BufferGeometry();
-    const particlePositions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      particlePositions[i] = (Math.random() - 0.5) * 16;
-      particlePositions[i + 1] = (Math.random() - 0.5) * 12;
-      particlePositions[i + 2] = (Math.random() - 0.5) * 10 - 2;
+    // --- A. Heavy Outer Vault Frame (Beveled Cylinder facing camera) ---
+    const outerFrameGeo = new THREE.CylinderGeometry(2.45, 2.55, 0.45, 48);
+    outerFrameGeo.rotateX(Math.PI / 2);
+    const outerFrame = new THREE.Mesh(outerFrameGeo, gunmetalMat);
+    masterGroup.add(outerFrame);
+
+    // Outer Perimeter Rivets (16 bolts around the rim)
+    const rivetGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.08, 12);
+    rivetGeo.rotateX(Math.PI / 2);
+    const rivetRadius = 2.38;
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      const rivet = new THREE.Mesh(rivetGeo, rivetMat);
+      rivet.position.set(
+        Math.cos(angle) * rivetRadius,
+        Math.sin(angle) * rivetRadius,
+        0.24
+      );
+      masterGroup.add(rivet);
     }
-    particleGeo.setAttribute(
-      'position',
-      new THREE.BufferAttribute(particlePositions, 3)
-    );
 
-    const particleMat = new THREE.PointsMaterial({
-      color: 0x38bdf8,
-      size: 0.055,
-      transparent: true,
-      opacity: 0.6,
+    // --- B. Recessed Vault Chamber Cavity ---
+    const recessGeo = new THREE.CylinderGeometry(2.1, 2.1, 0.35, 48);
+    recessGeo.rotateX(Math.PI / 2);
+    const recessMat = new THREE.MeshStandardMaterial({
+      color: 0x060913,
+      metalness: 0.92,
+      roughness: 0.45,
     });
-    const particles = new THREE.Points(particleGeo, particleMat);
-    scene.add(particles);
+    const recessMesh = new THREE.Mesh(recessGeo, recessMat);
+    recessMesh.position.z = -0.05;
+    masterGroup.add(recessMesh);
 
-    // 4. Pointer Interaction
-    const targetRotation = { x: 0.2, y: 0.3 };
-    const currentRotation = { x: 0.2, y: 0.3 };
+    // Glowing Cyan Security Ring
+    const securityRingGeo = new THREE.TorusGeometry(2.02, 0.035, 16, 64);
+    const securityRing = new THREE.Mesh(securityRingGeo, cyanGlowMat);
+    securityRing.position.z = 0.15;
+    masterGroup.add(securityRing);
+
+    // --- C. Protected Document Core (Softly illuminated inside the vault) ---
+    const docCoreGroup = new THREE.Group();
+    docCoreGroup.position.set(0, 0, -0.08);
+    masterGroup.add(docCoreGroup);
+
+    const docGeo = new THREE.BoxGeometry(0.9, 1.25, 0.06);
+    const docMat = new THREE.MeshStandardMaterial({
+      color: 0x1e1b4b,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 0.8,
+      metalness: 0.7,
+      roughness: 0.25,
+    });
+    const docMesh = new THREE.Mesh(docGeo, docMat);
+    docCoreGroup.add(docMesh);
+
+    const docEdgesGeo = new THREE.EdgesGeometry(docGeo);
+    const docEdgesMat = new THREE.LineBasicMaterial({
+      color: 0x06b6d4,
+      linewidth: 1.5,
+    });
+    const docEdges = new THREE.LineSegments(docEdgesGeo, docEdgesMat);
+    docCoreGroup.add(docEdges);
+
+    // --- D. Circular Vault Door Assembly ---
+    const doorGroup = new THREE.Group();
+    doorGroup.position.z = 0.08;
+    masterGroup.add(doorGroup);
+
+    // Main Door Disc
+    const doorDiscGeo = new THREE.CylinderGeometry(1.82, 1.82, 0.22, 48);
+    doorDiscGeo.rotateX(Math.PI / 2);
+    const doorDisc = new THREE.Mesh(doorDiscGeo, doorSteelMat);
+    doorGroup.add(doorDisc);
+
+    // Concentric Reinforcing Rings
+    const innerRingGeo = new THREE.TorusGeometry(1.25, 0.04, 16, 48);
+    const innerRing = new THREE.Mesh(innerRingGeo, chromeMat);
+    innerRing.position.z = 0.12;
+    doorGroup.add(innerRing);
+
+    const midRingGeo = new THREE.TorusGeometry(0.85, 0.025, 16, 48);
+    const midRing = new THREE.Mesh(midRingGeo, cyanGlowMat);
+    midRing.position.z = 0.12;
+    doorGroup.add(midRing);
+
+    // Radial Locking Bolts (8 heavy cylindrical bolts)
+    const boltGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.48, 16);
+    boltGeo.rotateZ(Math.PI / 2);
+    const bolts: THREE.Mesh[] = [];
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const bolt = new THREE.Mesh(boltGeo, chromeMat);
+      bolt.position.set(
+        Math.cos(angle) * 1.7,
+        Math.sin(angle) * 1.7,
+        0.05
+      );
+      bolt.rotation.z = angle;
+      doorGroup.add(bolt);
+      bolts.push(bolt);
+    }
+
+    // --- E. Central Locking Hand Wheel Assembly ---
+    const wheelGroup = new THREE.Group();
+    wheelGroup.position.z = 0.22;
+    doorGroup.add(wheelGroup);
+
+    // Wheel Central Hub
+    const hubGeo = new THREE.CylinderGeometry(0.32, 0.35, 0.26, 32);
+    hubGeo.rotateX(Math.PI / 2);
+    const hub = new THREE.Mesh(hubGeo, gunmetalMat);
+    wheelGroup.add(hub);
+
+    const hubCapGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.28, 32);
+    hubCapGeo.rotateX(Math.PI / 2);
+    const hubCap = new THREE.Mesh(hubCapGeo, cyanGlowMat);
+    wheelGroup.add(hubCap);
+
+    // Chrome Hand Wheel Rim
+    const wheelRimGeo = new THREE.TorusGeometry(0.68, 0.05, 16, 36);
+    const wheelRim = new THREE.Mesh(wheelRimGeo, chromeMat);
+    wheelRim.position.z = 0.1;
+    wheelGroup.add(wheelRim);
+
+    // Wheel Radial Spokes (6 spokes)
+    const spokeGeo = new THREE.CylinderGeometry(0.032, 0.032, 1.36, 16);
+    for (let i = 0; i < 3; i++) {
+      const spoke = new THREE.Mesh(spokeGeo, chromeMat);
+      spoke.position.z = 0.1;
+      spoke.rotation.z = (i / 3) * Math.PI;
+      wheelGroup.add(spoke);
+    }
+
+    // 4. Pointer Parallax Interaction
+    const targetRotation = { x: 0.12, y: -0.15 };
+    const currentRotation = { x: 0.12, y: -0.15 };
 
     const handlePointerMove = (e: PointerEvent) => {
       if (prefersReducedMotion) return;
       const rect = container.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-      targetRotation.y = x * 0.45;
-      targetRotation.x = -y * 0.35 + 0.2;
+      targetRotation.y = x * 0.35;
+      targetRotation.x = -y * 0.25 + 0.1;
     };
 
     container.addEventListener('pointermove', handlePointerMove);
@@ -183,48 +257,58 @@ export default function VaultCanvas() {
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
 
-    // 6. Animation Loop
+    // 6. Animation Loop with Tasteful Light Sweep
     let animationFrameId: number;
-    const clock = new THREE.Clock();
+    const startTime = performance.now();
 
-    const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
+    if (prefersReducedMotion) {
+      // Set an elegant fixed perspective angle for reduced-motion users
+      masterGroup.rotation.set(0.1, -0.15, 0);
+      renderer.render(scene, camera);
+    } else {
+      const animate = () => {
+        animationFrameId = requestAnimationFrame(animate);
 
-      const delta = clock.getDelta();
-      const elapsedTime = clock.getElapsedTime();
+        const elapsedTime = (performance.now() - startTime) * 0.001;
 
-      if (!prefersReducedMotion) {
-        // Smooth rotation damping toward pointer target
+        // Smooth rotation damping toward pointer parallax
         currentRotation.x += (targetRotation.x - currentRotation.x) * 0.05;
         currentRotation.y += (targetRotation.y - currentRotation.y) * 0.05;
 
-        // Subtle ambient continuous rotation
-        vaultGroup.rotation.y = currentRotation.y + elapsedTime * 0.18;
-        vaultGroup.rotation.x = currentRotation.x + Math.sin(elapsedTime * 0.4) * 0.08;
+        // Subtle idle rotation & floating bob
+        masterGroup.rotation.y = currentRotation.y + Math.sin(elapsedTime * 0.4) * 0.06;
+        masterGroup.rotation.x = currentRotation.x + Math.cos(elapsedTime * 0.35) * 0.04;
+        masterGroup.position.y = Math.sin(elapsedTime * 0.8) * 0.06;
 
-        // Differential core spin
-        innerCoreGroup.rotation.y = -elapsedTime * 0.25;
-        innerCoreGroup.rotation.z = Math.sin(elapsedTime * 0.5) * 0.08;
+        // Slow majestic wheel idle rotation
+        wheelGroup.rotation.z = elapsedTime * 0.18;
 
-        // Orbit security nodes
-        nodeGroup.rotation.z = elapsedTime * 0.3;
-        nodes.forEach((n, idx) => {
-          n.rotation.x += delta * (1 + idx * 0.2);
-          n.rotation.y += delta * 1.5;
+        // Subtle locking bolt tension
+        const boltPulse = Math.sin(elapsedTime * 1.5) * 0.015;
+        bolts.forEach((bolt, idx) => {
+          const angle = (idx / 8) * Math.PI * 2;
+          const r = 1.7 + boltPulse;
+          bolt.position.set(Math.cos(angle) * r, Math.sin(angle) * r, 0.05);
         });
 
-        // Drifting particles
-        particles.rotation.y = elapsedTime * 0.02;
-      }
+        // Soft document core glow pulse
+        docMat.emissiveIntensity = 0.7 + Math.sin(elapsedTime * 2) * 0.2;
 
-      renderer.render(scene, camera);
-    };
+        // Tasteful Unlocking Light Sweep
+        const sweepX = Math.sin(elapsedTime * 0.85) * 3.5;
+        const sweepY = Math.cos(elapsedTime * 0.85) * 2.0 + 1.0;
+        sweepLight.position.set(sweepX, sweepY, 4.5);
+        sweepLight.target.position.set(0, 0, 0);
 
-    animate();
+        renderer.render(scene, camera);
+      };
+
+      animate();
+    }
 
     // 7. Cleanup
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       container.removeEventListener('pointermove', handlePointerMove);
 
@@ -233,18 +317,30 @@ export default function VaultCanvas() {
       }
       renderer.dispose();
 
-      outerBoxGeo.dispose();
-      outerBoxMat.dispose();
-      outerEdgesGeo.dispose();
-      outerEdgesMat.dispose();
-      coreGeo.dispose();
-      coreMat.dispose();
-      coreEdgesGeo.dispose();
-      coreEdgesMat.dispose();
-      nodeGeo.dispose();
-      nodeMat.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
+      // Dispose geometries & materials
+      outerFrameGeo.dispose();
+      rivetGeo.dispose();
+      recessGeo.dispose();
+      securityRingGeo.dispose();
+      docGeo.dispose();
+      docEdgesGeo.dispose();
+      doorDiscGeo.dispose();
+      innerRingGeo.dispose();
+      midRingGeo.dispose();
+      boltGeo.dispose();
+      hubGeo.dispose();
+      hubCapGeo.dispose();
+      wheelRimGeo.dispose();
+      spokeGeo.dispose();
+
+      gunmetalMat.dispose();
+      doorSteelMat.dispose();
+      chromeMat.dispose();
+      cyanGlowMat.dispose();
+      rivetMat.dispose();
+      recessMat.dispose();
+      docMat.dispose();
+      docEdgesMat.dispose();
     };
   }, []);
 
@@ -255,24 +351,12 @@ export default function VaultCanvas() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[360px] sm:h-[440px] flex items-center justify-center overflow-hidden rounded-2xl border border-cyan-500/20 bg-slate-950/70 shadow-[0_0_50px_rgba(6,182,212,0.1)] cursor-grab active:cursor-grabbing"
-      aria-label="Interactive 3D TrustVault cryptographic cube demonstrating isolated multi-layer containment"
+      className="relative w-full h-[380px] sm:h-[460px] flex items-center justify-center overflow-hidden rounded-2xl border border-cyan-500/20 bg-slate-950/70 shadow-[0_0_60px_rgba(6,182,212,0.12)] cursor-grab active:cursor-grabbing"
+      aria-label="Interactive 3D TrustVault security vault with circular locking wheel and protected document core"
       role="img"
     >
       {/* Background ambient radial highlight */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.12)_0%,rgba(139,92,246,0.06)_40%,transparent_70%)] pointer-events-none" />
-
-      {/* Cybernetic subtle HUD overlay */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-full border border-cyan-500/30 bg-slate-900/80 px-3 py-1 backdrop-blur-md pointer-events-none">
-        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-        <span className="text-[11px] font-mono text-cyan-300 font-semibold tracking-wider uppercase">
-          Visual 3D Architecture Model (Procedural)
-        </span>
-      </div>
-
-      <div className="absolute bottom-4 right-4 z-10 rounded-md border border-slate-800 bg-slate-950/80 px-2.5 py-1 text-[10px] font-mono text-slate-400 backdrop-blur-md pointer-events-none">
-        Interactive preview • Zero-trust document core (Planned Phase 4/5 storage)
-      </div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.14)_0%,rgba(139,92,246,0.06)_45%,transparent_70%)] pointer-events-none" />
     </div>
   );
 }

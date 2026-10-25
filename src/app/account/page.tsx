@@ -109,18 +109,17 @@ async function AccountContent() {
           </div>
         </div>
 
-        {/* Phase 6 Owner Document Sharing Manager */}
+        {/* Owner Document Sharing Manager */}
         <OwnerSharingManager userRole={profile.role} />
 
-        {/* System Architecture & Scope Status */}
+        {/* System Architecture Status */}
         <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 space-y-2">
           <div className="flex items-center gap-2 text-cyan-400 font-semibold text-xs">
             <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            Phase 6 Scope Status
+            Document Security Architecture
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Owner-controlled permission grants and immediate revocation are operational. All document access is gated through server-side{' '}
-            <code className="text-cyan-300 font-mono">authorize(userId, docId, action)</code>. Downloads stream server-side with zero presigned URLs. Public sharing links, bulk user directories, document deletion UI, and AI suggestions are intentionally unbuilt in this phase.
+            All document operations are strictly mediated by centralized server authorization. Downloads stream directly from protected storage with pre-stream verification and zero presigned public links.
           </p>
         </div>
 

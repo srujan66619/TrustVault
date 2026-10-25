@@ -16,7 +16,8 @@ async function LoginContent({
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-md space-y-6">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-400">
-            Phase 3: Supabase Auth Core
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            Secure Authentication
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">
             Sign In to TrustVault
@@ -88,7 +89,7 @@ async function LoginContent({
               type="submit"
               className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
             >
-              Create Account (Role: VIEWER)
+              Create Account
             </button>
           </div>
         </form>

@@ -128,7 +128,7 @@ export function OwnerSharingManager({ userRole }: { userRole: string }) {
       <div className="border-b border-slate-800 pb-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-400 mb-2">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-          Owner-Controlled Sharing (Phase 6)
+          Owner-Controlled Sharing
         </div>
         <h2 className="text-xl font-bold tracking-tight text-white">
           Document Access & Immediate Revocation
@@ -276,14 +276,14 @@ export function OwnerSharingManager({ userRole }: { userRole: string }) {
         </div>
       )}
 
-      {/* Out of Scope / Unbuilt Notice */}
+      {/* Security Boundary Notice */}
       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-1.5 text-[11px] text-slate-500">
-        <p className="font-semibold text-slate-400">Phase 6 Scope & Security Boundary:</p>
+        <p className="font-semibold text-slate-400">Security Boundaries:</p>
         <ul className="list-disc pl-4 space-y-1">
           <li>Grantees cannot re-share documents. Sharing is strictly owner-controlled.</li>
           <li>Direct table mutations on permissions are denied at the PostgreSQL layer.</li>
           <li>Revocation takes effect immediately without stale tokens or pre-signed URLs.</li>
-          <li>Public share links, bulk user directories, document deletion UI, and AI suggestions are intentionally unbuilt in this phase.</li>
+          <li>Strict server-side validation ensures non-transitive sharing and zero unauthenticated access.</li>
         </ul>
       </div>
     </div>
