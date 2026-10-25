@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { signOut } from '@/app/login/actions';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { OwnerSharingManager } from './OwnerSharingManager';
 
 async function AccountContent() {
   let session;
@@ -108,17 +109,18 @@ async function AccountContent() {
           </div>
         </div>
 
-        {/* Phase 3 Status Notice */}
+        {/* Phase 6 Owner Document Sharing Manager */}
+        <OwnerSharingManager userRole={profile.role} />
+
+        {/* System Architecture & Scope Status */}
         <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 space-y-2">
           <div className="flex items-center gap-2 text-cyan-400 font-semibold text-xs">
             <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            Phase 3 Scope Notice
+            Phase 6 Scope Status
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            This account overview is the Phase 3 authentication placeholder. Document upload, download,
-            sharing interfaces, and storage streaming are intentionally unbuilt until later phases.
-            All document access will be gated through the server-side{' '}
-            <code className="text-cyan-300 font-mono">authorize(userId, docId, action)</code> choke-point.
+            Owner-controlled permission grants and immediate revocation are operational. All document access is gated through server-side{' '}
+            <code className="text-cyan-300 font-mono">authorize(userId, docId, action)</code>. Downloads stream server-side with zero presigned URLs. Public sharing links, bulk user directories, document deletion UI, and AI suggestions are intentionally unbuilt in this phase.
           </p>
         </div>
 

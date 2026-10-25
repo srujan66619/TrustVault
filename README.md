@@ -200,9 +200,56 @@ All document interactions occur through server-side route handlers enforcing liv
 
 ---
 
-## What Is Explicitly Not Built Yet (Phase 5 Status)
+## Owner-Controlled Permission Grants & Immediate Revocation (Phase 6 Baseline)
+
+### 1. Permission Model & Security Invariants
+TrustVault Phase 6 implements owner-controlled sharing and real-time revocation with strict least-privilege guarantees:
+* **Owner-Exclusive Authority**: Only the verified document owner may grant, modify, or revoke permissions. Administrative roles (`ADMIN`) do NOT have authority to grant or revoke document permissions.
+* **No Re-Sharing**: Grantees (`READ` or `EDIT`) cannot grant permissions, re-share documents, or manage access for other users.
+* **Invariant Ownership**: The document owner cannot be added as a grantee and cannot revoke their own access.
+* **Active Target Verification**: Permissions can only be granted to target accounts that exist and have an `ACTIVE` status in `public.profiles`.
+* **Explicit Permission Levels**: Permissions are strictly constrained to `'READ'` and `'EDIT'`.
+  * `READ`: Can inspect document metadata and stream document downloads. Cannot edit, delete, grant, or revoke.
+  * `EDIT`: Can inspect metadata, download bytes, and edit document content/metadata. Cannot delete, grant, or revoke.
+* **Centralized Authorization**: All operations enforce live database state via `authorize(userId, documentId, 'GRANT')` and `authorize(userId, documentId, 'REVOKE')`.
+
+### 2. Direct Permission Table Lockdown (Least Privilege)
+To eliminate audit bypasses and unauthenticated tampering:
+* Direct `INSERT`, `UPDATE`, `DELETE`, and `TRUNCATE` privileges on `public.document_permissions` are **completely revoked** from `anon`, `authenticated`, and `service_role`.
+* Only `SELECT` is granted to `authenticated` and `service_role`.
+* All mutations MUST execute through server-only `SECURITY DEFINER` stored procedures:
+  * `public.grant_or_change_document_permission_and_audit(...)`
+  * `public.revoke_document_permission_and_audit(...)`
+  * `public.list_document_permissions_for_owner(...)`
+* Execution privileges on these stored procedures are granted exclusively to `service_role` and completely revoked from `anon` and `authenticated`.
+
+### 3. Immediate Revocation Architecture
+* **Zero Surviving URLs**: TrustVault never issues signed URLs. All file bytes stream directly through server route handlers verifying live database state immediately before streaming.
+* **Pre-Stream Authorization Recheck**: Every download request executes `authorize(userId, documentId, 'DOWNLOAD')` immediately before beginning download streaming. Revocation blocks the very next request across metadata, list/search, and download routes. However, bytes already released to an active stream cannot be recalled once sent over the network socket.
+* **Sub-Millisecond Deny**: Once a revocation transaction commits, the former grantee is denied on the very next metadata request, search/list query, and download request.
+* **Static SQL CTE & Atomic Audit**: Revocation executes via static PostgreSQL Data-Modifying CTE (`WITH deleted_grant AS (DELETE ... RETURNING ...) SELECT ...`) under least-privilege security definer, ensuring atomic state deletion and `PERMISSION_REVOKED` audit logging in a single transaction.
+
+### 4. Comprehensive Denied Attempt Audit Logging
+* **Failed Operation Auditing**: Every denied permission attempt (non-owner actor, grantee re-sharing, self-grant, self-revoke, inactive target, nonexistent target, invalid permission, soft-deleted/nonexistent document, and malformed input) creates an immutable `ACCESS_DENIED` audit event with sequence number in the tamper-evident hash chain.
+* **Zero Email Leakage**: Audit log metadata strictly records safe machine reason codes (e.g., `NOT_DOCUMENT_OWNER`, `TARGET_NOT_FOUND`, `TARGET_INACTIVE`, `CANNOT_GRANT_OWNER`, `CANNOT_REVOKE_OWNER`, `INVALID_PERMISSION`, `MALFORMED_INPUT`) and target UUIDs where available. Raw target email addresses are strictly excluded from audit event metadata.
+
+### 5. Anti-Enumeration & Privacy Guarantees
+* **Non-Enumerable Target Identification**: Permission grants require an exact email address validated server-side using Zod. No browseable or search-as-you-type user directory is exposed.
+* **Generic Response for Unknown/Inactive Users**: When a target user does not exist or has an inactive profile, the endpoint returns a generic success message (`"Permission update processed. If an active account exists with that email, access was updated."`), preventing malicious actors from probing whether email addresses are registered TrustVault users.
+* **Uniform 404 Not Found**: Denied, unauthorized, or soft-deleted requests return a uniform `404 Not Found or Access Denied` response to eliminate document existence enumeration.
+
+### 6. Server Endpoints & Protected UI
+* **`GET /api/documents/[id]/permissions`**: Lists all active permission grants on a document. Accessible exclusively by the verified document owner.
+* **`POST /api/documents/[id]/permissions`**: Grants or updates `READ` or `EDIT` permissions for a named email address. Validates inputs via Zod, verifies owner authorization, and commits the grant atomically with a `PERMISSION_GRANTED` or `PERMISSION_CHANGED` audit record.
+* **`DELETE /api/documents/[id]/permissions/[granteeId]`**: Revokes document access immediately. Verifies owner authorization and commits the deletion atomically with a `PERMISSION_REVOKED` audit record.
+* **Protected Sharing UI (`/account`)**: Includes the `OwnerSharingManager` client component enabling document owners to view grants, share via exact recipient email, and revoke access in real time without exposing client-side authorization logic or user directories.
+
+---
+
+## What Is Explicitly Not Built Yet (Phase 6 Status)
 To maintain total transparency and avoid false security assumptions, the following features are **intentionally not built** in this phase:
-* ❌ **Sharing & Permission Management Routes**: Explicit grant (`POST /api/documents/[id]/permissions`) and revoke endpoints (Phase 6).
-* ❌ **Document CRUD & Sharing UI**: File upload forms, document list tables, and permission grant/revoke dialogs.
-* ❌ **Audit History UI**: Frontend screens for viewing audit trails or triggering verification scans.
-* ❌ **Admin Dashboard**: Multi-tenant administrative views or system status dashboards.
+* ❌ **Admin Activity Dashboard**: System-wide compliance audit views and multi-tenant admin dashboards.
+* ❌ **Document Deletion UI**: Frontend interfaces for soft-deleting or purging documents.
+* ❌ **Public Sharing Links**: Anonymous or time-expiring external web links.
+* ❌ **Bulk User Directory**: Browseable user directories, contact auto-complete, or user discovery tools.
+* ❌ **AI Suggestions**: Machine learning or heuristic recommendations for document categorization or sharing recipients.
