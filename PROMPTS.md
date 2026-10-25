@@ -1101,4 +1101,4 @@ This document tracks all user prompts, assistant outputs, architectural critique
   - Secret scan: 0 service role keys in client bundles, Git tracking, or NEXT_PUBLIC_ variables.
 
 * **Real Git Commit Hash / Link**:
-  *(Pending approval before commit/push)*
+  [`56a14d1`](https://github.com/srujan66619/TrustVault/commit/56a14d1)
