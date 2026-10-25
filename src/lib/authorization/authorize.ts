@@ -76,6 +76,8 @@ export async function fetchLiveAuthorizationContext(
   return data as RawAuthorizationContext;
 }
 
+export const GLOBAL_AUDIT_DOCUMENT_ID = '00000000-0000-0000-0000-000000000000';
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -104,7 +106,7 @@ const VALID_ACTIONS: ReadonlySet<DocumentAction> = new Set([
  *    - EDIT grantees can ONLY READ, DOWNLOAD, and EDIT.
  *    - Grantees can NEVER DELETE, GRANT, REVOKE, or VIEW_AUDIT.
  * 7. Admin Scope (Zero-Trust):
- *    - Admin role allows VIEW_AUDIT for system audit compliance.
+ *    - Admin role allows VIEW_AUDIT for system audit compliance and global activity verification.
  *    - Admin role DOES NOT grant automatic access to read, edit, download, or delete private user
  *      documents without explicit ownership or grantee permissions.
  * 8. Anti-Enumeration & IDOR Defense:
@@ -169,6 +171,32 @@ export async function authorize(
       userId,
       documentId,
       action,
+      userRole: context.user_role,
+    };
+  }
+
+  // 3b. Global Audit Scope Evaluation
+  // Evaluates system-level audit requests when documentId is the sentinel GLOBAL_AUDIT_DOCUMENT_ID
+  if (documentId === GLOBAL_AUDIT_DOCUMENT_ID) {
+    if (action === 'VIEW_AUDIT' && context.user_role === 'ADMIN') {
+      return {
+        allowed: true,
+        reason: 'AUTHORIZED',
+        userId,
+        documentId,
+        action,
+        isOwner: false,
+        userRole: 'ADMIN',
+      };
+    }
+
+    return {
+      allowed: false,
+      reason: 'UNAUTHORIZED_ACTION',
+      userId,
+      documentId,
+      action,
+      isOwner: false,
       userRole: context.user_role,
     };
   }

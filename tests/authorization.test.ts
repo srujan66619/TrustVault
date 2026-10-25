@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   authorize,
+  GLOBAL_AUDIT_DOCUMENT_ID,
   type RawAuthorizationContext,
   type DocumentAction,
 } from '../src/lib/authorization/authorize';
@@ -29,6 +30,52 @@ describe('Phase 3: Centralized Authorization Module (authorize)', () => {
     userId: string,
     documentId: string
   ): Promise<RawAuthorizationContext> => {
+    // Global audit scope sentinel
+    if (documentId === GLOBAL_AUDIT_DOCUMENT_ID) {
+      if (userId === ADMIN_ID) {
+        return {
+          user_found: true,
+          user_role: 'ADMIN',
+          user_status: 'ACTIVE',
+          doc_found: false,
+          doc_owner_id: null,
+          doc_deleted: false,
+          grant_permission: null,
+        };
+      }
+      if (userId === OWNER_ID) {
+        return {
+          user_found: true,
+          user_role: 'OWNER',
+          user_status: 'ACTIVE',
+          doc_found: false,
+          doc_owner_id: null,
+          doc_deleted: false,
+          grant_permission: null,
+        };
+      }
+      if (userId === DISABLED_ID) {
+        return {
+          user_found: true,
+          user_role: 'ADMIN',
+          user_status: 'DISABLED',
+          doc_found: false,
+          doc_owner_id: null,
+          doc_deleted: false,
+          grant_permission: null,
+        };
+      }
+      return {
+        user_found: true,
+        user_role: 'VIEWER',
+        user_status: 'ACTIVE',
+        doc_found: false,
+        doc_owner_id: null,
+        doc_deleted: false,
+        grant_permission: null,
+      };
+    }
+
     // Nonexistent document
     if (documentId === DOC_NONEXISTENT_ID) {
       return {
@@ -289,6 +336,65 @@ describe('Phase 3: Centralized Authorization Module (authorize)', () => {
     const editRes = await authorize(ADMIN_ID, DOC_ACTIVE_ID, 'EDIT', opts);
     expect(editRes.allowed).toBe(false);
     expect(editRes.reason).toBe('NOT_FOUND_OR_DENIED');
+  });
+
+  // ============================================================================
+  // TEST 9b: Phase 8 Explicit VIEW_AUDIT & Global Audit Authorization
+  // ============================================================================
+  it('strictly restricts GLOBAL_AUDIT_DOCUMENT_ID to active ADMIN for VIEW_AUDIT only', async () => {
+    // 1. Admin is allowed to VIEW_AUDIT on GLOBAL_AUDIT_DOCUMENT_ID
+    const adminGlobal = await authorize(ADMIN_ID, GLOBAL_AUDIT_DOCUMENT_ID, 'VIEW_AUDIT', opts);
+    expect(adminGlobal.allowed).toBe(true);
+    expect(adminGlobal.reason).toBe('AUTHORIZED');
+    expect(adminGlobal.userRole).toBe('ADMIN');
+
+    // 2. Owner is DENIED global activity (owners may only see documents they own)
+    const ownerGlobal = await authorize(OWNER_ID, GLOBAL_AUDIT_DOCUMENT_ID, 'VIEW_AUDIT', opts);
+    expect(ownerGlobal.allowed).toBe(false);
+    expect(ownerGlobal.reason).toBe('UNAUTHORIZED_ACTION');
+
+    // 3. Grantee/Viewer is DENIED global activity
+    const granteeGlobal = await authorize(GRANTEE_READ_ID, GLOBAL_AUDIT_DOCUMENT_ID, 'VIEW_AUDIT', opts);
+    expect(granteeGlobal.allowed).toBe(false);
+    expect(granteeGlobal.reason).toBe('UNAUTHORIZED_ACTION');
+
+    // 4. Disabled user is DENIED global activity
+    const disabledGlobal = await authorize(DISABLED_ID, GLOBAL_AUDIT_DOCUMENT_ID, 'VIEW_AUDIT', opts);
+    expect(disabledGlobal.allowed).toBe(false);
+    expect(disabledGlobal.reason).toBe('ACCOUNT_DISABLED');
+
+    // 5. Admin CANNOT perform non-audit actions on GLOBAL_AUDIT_DOCUMENT_ID
+    const adminRead = await authorize(ADMIN_ID, GLOBAL_AUDIT_DOCUMENT_ID, 'READ', opts);
+    expect(adminRead.allowed).toBe(false);
+    expect(adminRead.reason).toBe('UNAUTHORIZED_ACTION');
+  });
+
+  it('proves real authorize() allows document owner for VIEW_AUDIT but strictly denies READ/EDIT grantees and disabled users', async () => {
+    // 1. Owner allowed for VIEW_AUDIT on owned active document
+    const ownerRes = await authorize(OWNER_ID, DOC_ACTIVE_ID, 'VIEW_AUDIT', opts);
+    expect(ownerRes.allowed).toBe(true);
+    expect(ownerRes.reason).toBe('AUTHORIZED');
+    expect(ownerRes.isOwner).toBe(true);
+
+    // 2. READ grantee denied VIEW_AUDIT
+    const readRes = await authorize(GRANTEE_READ_ID, DOC_ACTIVE_ID, 'VIEW_AUDIT', opts);
+    expect(readRes.allowed).toBe(false);
+    expect(readRes.reason).toBe('UNAUTHORIZED_ACTION');
+
+    // 3. EDIT grantee denied VIEW_AUDIT
+    const editRes = await authorize(GRANTEE_EDIT_ID, DOC_ACTIVE_ID, 'VIEW_AUDIT', opts);
+    expect(editRes.allowed).toBe(false);
+    expect(editRes.reason).toBe('UNAUTHORIZED_ACTION');
+
+    // 4. Disabled owner denied VIEW_AUDIT
+    const disabledRes = await authorize(DISABLED_ID, DOC_ACTIVE_ID, 'VIEW_AUDIT', opts);
+    expect(disabledRes.allowed).toBe(false);
+    expect(disabledRes.reason).toBe('ACCOUNT_DISABLED');
+
+    // 5. Soft-deleted document denied VIEW_AUDIT even for owner
+    const deletedRes = await authorize(OWNER_ID, DOC_DELETED_ID, 'VIEW_AUDIT', opts);
+    expect(deletedRes.allowed).toBe(false);
+    expect(deletedRes.reason).toBe('NOT_FOUND_OR_DENIED');
   });
 
   // ============================================================================

@@ -937,6 +937,121 @@ This document tracks all user prompts, assistant outputs, architectural critique
 * **Real Git Commit Hash / Link**:
   [90351c8](https://github.com/srujan66619/TrustVault/commit/90351c8)
 
+---
+
+### Entry 12: 2026-10-25 — Phase 8: Protected Activity History & Admin Audit-Chain Verification
+
+* **What was asked**:
+  Begin Phase 8: Protected activity history and admin audit-chain verification.
+  - Make the tamper-evident audit trail reviewable without exposing audit data through browser-direct Supabase access.
+  - Inspect current live audit table, RLS and SQL privileges, audit functions, authorization module, and existing routes through Supabase MCP.
+  - Revoke browser-client direct `SELECT` access to `audit_logs` if it exists. Browser clients must not read audit records directly through Supabase.
+  - Add server-only, least-privilege query procedures/routes for audit access:
+    - Owners may see only records for documents they currently own.
+    - Owners may not see global activity.
+    - Grantees may not see document audit history.
+    - Disabled accounts are denied.
+    - Admins may see global activity only because this phase explicitly grants that role.
+  - Add explicit `VIEW_AUDIT` behavior to `authorize()` and test it. Do not use loose or implicit admin-role checks scattered across routes.
+  - Full-chain verification is admin-only. Owners may see their own document events but must not receive global chain details, hashes, or verification diagnostics.
+  - Audit viewing and verification must themselves be logged (`AUDIT_VIEW`, `AUDIT_VERIFY`) with safe metadata. Do not create a recursive loop or log the rendered audit entries themselves.
+  - Audit viewing or verification should fail closed if its mandatory audit event cannot be written.
+  - Never display raw IP address, user agent, hashes, tokens, internal errors, or unbounded metadata by default. Show only safe, minimal event fields.
+  - Paginate all results. Validate date, action, result, document ID, and page parameters with Zod.
+  - Filters must be applied in the database query before results are returned. Filters must never leak activity for inaccessible documents.
+  - Do not grant direct table mutation privileges to any browser or service role.
+  - Build owner-scoped document history (`/api/documents/[id]/activity`), owner accessible activity (`/api/activity`), admin global activity (`/api/admin/activity`), and admin chain verification (`/api/admin/audit/verify`).
+  - Replace the Activity navigation placeholder with a protected responsive activity page (`/activity`) with owner vs admin views and chain-health card. No claim of external/WORM-grade immutability.
+  - Run real mutation walkthroughs and test verification.
+  - Stop for approval before Phase 9.
+
+* **What was inspected & verified**:
+  1. **Supabase MCP Inspection**:
+     - Examined live `information_schema.table_privileges` and `pg_policies` on `public.audit_logs`.
+     - Discovered `audit_logs_select_owner` and `audit_logs_select_admin` RLS policies granted direct browser `SELECT` on `public.audit_logs` to `authenticated` role.
+     - Discovered `anon` had direct `SELECT` table privilege on `public.audit_logs`.
+  2. **Applied Corrective Migration**:
+     - Applied [`supabase/migrations/20261025040000_audit_history_procedures_and_lockdown.sql`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/supabase/migrations/20261025040000_audit_history_procedures_and_lockdown.sql) live to Supabase (`mgqrzzbyzuyygufcpaun`):
+       - Executed `REVOKE ALL ON TABLE public.audit_logs FROM anon, authenticated;`
+       - Dropped browser-accessible RLS policies `audit_logs_select_owner` and `audit_logs_select_admin`.
+       - Granted strictly `SELECT` on `public.audit_logs` to `service_role`.
+       - Created 4 `SECURITY DEFINER` stored procedures:
+         - `public.get_document_audit_history(p_actor_id, p_document_id, p_limit, p_offset, p_action, p_result, p_start_time, p_end_time)`
+         - `public.get_owner_audit_history(p_actor_id, p_limit, p_offset, p_document_id, p_action, p_result, p_start_time, p_end_time)`
+         - `public.get_admin_global_audit_activity(p_actor_id, p_limit, p_offset, p_document_id, p_action, p_result, p_start_time, p_end_time)`
+         - `public.get_admin_audit_chain_summary(p_actor_id)`
+       - Revoked all execute privileges on these procedures from `PUBLIC`, `anon`, and `authenticated`; granted exclusively to `service_role`.
+  3. **SQL Verification Suite**:
+     - Executed [`supabase/verify_phase8_security.sql`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/supabase/verify_phase8_security.sql) live via Supabase MCP: all 12 security verification checks **PASSED (100% green)** inside a transaction rolled back with zero leftover data.
+
+* **What was produced**:
+  1. **Centralized Authorization**:
+     - [`src/lib/authorization/authorize.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/authorization/authorize.ts): Exported `GLOBAL_AUDIT_DOCUMENT_ID = '00000000-0000-0000-0000-000000000000'`. Added Step 3b evaluating global audit authorization: allows only active `ADMIN` for `VIEW_AUDIT`, denies owners, grantees, and viewers (`UNAUTHORIZED_ACTION`), and denies disabled users (`ACCOUNT_DISABLED`).
+  2. **Validation & Domain Services**:
+     - [`src/lib/audit/validation.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/audit/validation.ts): Created `auditHistoryQuerySchema.strict()` validating `limit` (1-100), `offset` (>= 0), `documentId` (UUID), `action` (1-64 uppercase/underscore), `result` (`SUCCESS`, `ACCESS_DENIED`, `FAILURE`), `startTime` (ISO 8601), and `endTime` (ISO 8601).
+     - [`src/lib/audit/audit.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/audit/audit.ts): Implemented `getDocumentAuditHistory`, `getOwnerAuditHistory`, `getAdminGlobalAuditActivity`, and `getAdminAuditChainSummary` with fail-closed mandatory audit logging (`AUDIT_VIEW`, `AUDIT_VERIFY`) and safe metadata projection (stripping IP, user agent, internal errors, and hashes).
+  3. **Route Handlers**:
+     - [`src/app/api/documents/[id]/activity/route.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/api/documents/[id]/activity/route.ts): Owner-scoped document audit history with uniform 404 for unowned/nonexistent documents.
+     - [`src/app/api/activity/route.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/api/activity/route.ts): Owner-scoped activity stream across caller's owned documents.
+     - [`src/app/api/admin/activity/route.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/api/admin/activity/route.ts): Admin-only global audit stream with safe filtering.
+     - [`src/app/api/admin/audit/verify/route.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/api/admin/audit/verify/route.ts): Admin-only cryptographic audit chain verification.
+  4. **User Interface**:
+     - [`src/app/layout.tsx`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/layout.tsx): Activated navigation link to `/activity`.
+     - [`src/app/documents/DocumentDashboard.tsx`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/documents/DocumentDashboard.tsx): Added "History" action button on document cards for owners linking directly to `/activity?documentId=...`.
+     - [`src/app/activity/page.tsx`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/activity/page.tsx) & [`src/app/activity/ActivityDashboard.tsx`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/app/activity/ActivityDashboard.tsx): Responsive, high-contrast, accessible activity dashboard with role-adapted layouts (owner activity stream vs admin global activity stream with chain verification health card). Clearly states internal tamper-evidence without claiming external WORM storage.
+   5. **Corrective Authorization Refinement & Defense-in-Depth**:
+      - Centralized `authorize(userId, documentId, 'VIEW_AUDIT')`:
+        - Real document UUID: explicitly allows active document owner (`isOwner`); explicitly denies `READ` and `EDIT` grantees with `UNAUTHORIZED_ACTION`; allows active `ADMIN` only where explicitly intended and documented.
+        - `GLOBAL_AUDIT_DOCUMENT_ID`: allows active `ADMIN` only; strictly denies document owners, viewers, and grantees.
+        - Disabled accounts are denied across all operations (`ACCOUNT_DISABLED`).
+        - Never bypass `authorize()` in owner history routes.
+      - Owner-wide activity route (`/api/activity` / `getOwnerAuditHistory`):
+        - Database query scopes rows by `d.owner_id = p_actor_id AND d.deleted_at IS NULL`.
+        - Calls real `authorize(actorId, row.document_id, 'VIEW_AUDIT')` before serialization as defense in depth. Soft-deleted, unowned, or inaccessible records are pruned.
+   6. **Automated Vitest Test Suites**:
+      - [`tests/authorization.test.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/tests/authorization.test.ts): 18 tests covering centralized authorization, `GLOBAL_AUDIT_DOCUMENT_ID` evaluation, and owner vs grantee `VIEW_AUDIT` permissions.
+      - [`tests/audit.test.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/tests/audit.test.ts): 16 tests exercising the **real** production `authorize()` module and route handlers via `mockAuthorizationContext` (no spying or bypassing of `authorize()`).
+      - All 4 test suites: **121 / 121 tests PASSED (100% green)**.
+      - Next.js Turbopack production build: **Compiled successfully with exit code 0** (all 15 routes generated).
+
+* **Real Temporary Mutation Walkthrough Proof**:
+   1. **Mutation Walkthrough 1 — Bypass `authorize(actorId, documentId, 'VIEW_AUDIT')` in audit domain**:
+      - Mutated production file: [`src/lib/audit/audit.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/audit/audit.ts) line 214 (`if (false && !auth.allowed)`).
+      - Test command: `npx vitest run tests/audit.test.ts`.
+      - Captured failures: 3 tests failed. Restored exact production code.
+   2. **Mutation Walkthrough 2 — Bypass `authorize(actorId, GLOBAL_AUDIT_DOCUMENT_ID, 'VIEW_AUDIT')` in admin domain**:
+      - Mutated production file: [`src/lib/audit/audit.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/audit/audit.ts) line 386 (`if (false && !auth.allowed)`).
+      - Test command: `npx vitest run tests/audit.test.ts`.
+      - Captured failures: 2 tests failed. Restored exact production code.
+   3. **Mutation Walkthrough 3 — Real Owner `VIEW_AUDIT` Branch Removal**:
+      - Mutated production file: [`src/lib/authorization/authorize.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/authorization/authorize.ts) line 133 (`if (isOwner && action !== 'VIEW_AUDIT')`).
+      - Test command: `npx vitest run tests/audit.test.ts tests/authorization.test.ts`.
+      - Captured failures (6 tests failed):
+        - `allows owner VIEW_AUDIT on their own document, denies grantees`: `AssertionError: expected { allowed: false, ... } to match object { allowed: true }`.
+        - `allows owner to retrieve their own document history through the actual route`: `AssertionError: expected 404 to be 200`.
+        - `proves owner receives accessible activity and unowned activity is filtered out by real authorize`: `AssertionError: expected 0 to be 1`.
+        - Plus 3 additional owner authorization tests failed.
+      - Restored exact production code in `src/lib/authorization/authorize.ts`.
+   4. **Mutation Walkthrough 4 — Real Global-Admin `VIEW_AUDIT` Branch Removal**:
+      - Mutated production file: [`src/lib/authorization/authorize.ts`](file:///c:/Users/sruja/OneDrive/Desktop/trustwallet/src/lib/authorization/authorize.ts) line 108 (`if (false && action === 'VIEW_AUDIT' && context.user_role === 'ADMIN')`).
+      - Test command: `npx vitest run tests/audit.test.ts tests/authorization.test.ts`.
+      - Captured failures (5 tests failed):
+        - `evaluates GLOBAL_AUDIT_DOCUMENT_ID: allows only active ADMIN for VIEW_AUDIT`: `AssertionError: expected { allowed: false, ... } to match object { allowed: true }`.
+        - `allows Admin to view global activity and denies Owner`: `AssertionError: expected 403 to be 200`.
+        - `proves Admin can retrieve global activity and verify the chain`: `AssertionError: expected 403 to be 200`.
+        - Plus 2 additional admin route tests failed.
+      - Restored exact production code in `src/lib/authorization/authorize.ts`.
+   5. **Verification After Restoration**:
+      - Re-ran `npm test`: **121 / 121 tests PASSED across all 4 suites**.
+      - Re-ran `npm run lint`: **0 errors, 0 warnings**.
+      - Re-ran `npm run build`: **Exit code 0** (all 15 routes generated).
+      - Re-ran live Supabase verification: **12 / 12 checks PASSED (100% green)**.
+
+* **Real Git Commit Hash / Link**:
+   *(Pending approval before commit/push)*
+
+
+
 
 
 

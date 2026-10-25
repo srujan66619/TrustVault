@@ -595,10 +595,20 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                         href={`/api/documents/${doc.id}/download`}
                         download
                         className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
-                        title="Download document binary"
                       >
                         <span>⬇️</span> Download
                       </a>
+
+                      {/* History / Audit Button (Owner only) */}
+                      {doc.isOwner && (
+                        <Link
+                          href={`/activity?documentId=${doc.id}`}
+                          className="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+                          title="View document audit history"
+                        >
+                          <span>📜</span> History
+                        </Link>
+                      )}
 
                       {/* Edit Metadata Button (Owner or EDIT grantee only) */}
                       {canEdit && (

@@ -27,7 +27,7 @@ export default function RootLayout({
                 TrustVault
               </span>
               <span className="ml-2 text-xs font-mono uppercase px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">
-                Phase 3 Core
+                Phase 8 Core
               </span>
             </div>
 
@@ -50,15 +50,12 @@ export default function RootLayout({
               >
                 Documents
               </Link>
-              <span
-                className="text-slate-500 cursor-not-allowed hidden sm:inline-flex items-center gap-1.5"
-                title="Activity log placeholder (Scheduled for Phase 4)"
+              <Link
+                href="/activity"
+                className="text-slate-300 hover:text-white transition-colors"
               >
                 Activity
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-slate-800/80 text-slate-400 rounded">
-                  Pending Phase 4
-                </span>
-              </span>
+              </Link>
               <Link
                 href="/login"
                 className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 hover:text-white transition-all"
@@ -79,7 +76,7 @@ export default function RootLayout({
           <div className="max-w-6xl mx-auto px-4">
             <p>TrustVault — Security is the product; CRUD is secondary.</p>
             <p className="mt-1 font-mono text-[11px] text-slate-600">
-              Current state: Phase 3 Centralized Authorization Core & Planned Architecture. Live document routes, private storage, and hash chains in development.
+              Current state: Phase 8 Protected Activity History & Admin Audit-Chain Verification. Server-mediated least-privilege audit views, zero browser direct access, and tamper-evident SHA-256 chain integrity.
             </p>
           </div>
         </footer>

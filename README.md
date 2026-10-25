@@ -286,11 +286,40 @@ TrustVault Phase 7 turns secure document routes into a usable, responsive, prote
 
 ---
 
-## What Is Explicitly Not Built Yet (Phase 7 Status)
+## Protected Activity History & Admin Audit-Chain Verification (Phase 8 Baseline)
+
+### 1. Architectural Overview & Least-Privilege Audit Isolation
+TrustVault Phase 8 makes the tamper-evident audit trail reviewable while preventing exposure through browser-direct Supabase access:
+* **Zero Browser-Direct Table Access**: Direct `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and `TRUNCATE` privileges on `public.audit_logs` are **completely revoked** from `anon` and `authenticated`. Browser clients cannot read audit records directly through PostgREST or the Supabase SDK.
+* **Server-Mediated Access Only**: All audit queries execute through server Route Handlers using least-privilege `SECURITY DEFINER` stored procedures granted exclusively to `service_role`.
+* **Centralized Authorization (`authorize`)**:
+  * **Document Audit History**: Gated by `authorize(userId, docId, 'VIEW_AUDIT')`. Only the verified document owner may view history. Grantees (`READ`/`EDIT`), unrelated users, and disabled accounts receive uniform 404 responses.
+  * **Global Activity**: Gated by `authorize(userId, GLOBAL_AUDIT_DOCUMENT_ID, 'VIEW_AUDIT')`. Restricted strictly to active `ADMIN` accounts. Owners and viewers receive 403 Forbidden.
+  * **Audit-Chain Verification**: Admin-only. Verifies cryptographic hash continuity across historical records.
+* **Fail-Closed Mandatory Auditing**: Every inspection (`AUDIT_VIEW`) and verification (`AUDIT_VERIFY`) is itself audited before results are returned. If logging fails (e.g. database lock timeout), the query aborts with HTTP 500 (fail-closed).
+* **Anti-Recursive Logging**: Audit viewing logs structural query metadata only (`scope`, `limit`, `offset`, boolean filter flags). Rendered audit entries are never embedded into audit payloads, preventing recursive loops and log bloat.
+* **Privacy & Safe Projection**: Safe stored procedures strip internal fields (`ip_address`, `user_agent`, `prev_hash`, `row_hash`, `internal_error`, `token`) at the database layer. No raw hashes or internal errors are returned to clients.
+* **In-Database Filtering**: Pagination (`limit`, `offset`) and filters (`action`, `result`, date range, `documentId`) are applied entirely inside PostgreSQL after ownership/role verification.
+
+### 2. Server Endpoints & Protected Activity UI
+* **`GET /api/documents/[id]/activity`**: Owner-scoped document audit history. Generic 404 for unowned, non-existent, or soft-deleted documents.
+* **`GET /api/activity`**: Owner-scoped accessible document activity across all documents owned by the caller.
+* **`GET /api/admin/activity`**: Admin-only global system audit activity with safe filtering and pagination.
+* **`GET /api/admin/audit/verify` & `POST /api/admin/audit/verify`**: Admin-only cryptographic audit chain verification returning high-level summary metrics (`totalRecords`, `isValid`, `firstSequence`, `lastSequence`, `verifiedAt`).
+* **Protected Activity Dashboard (`/activity`)**: Responsive, high-contrast, accessible activity interface. Automatically adjusts layout and controls based on caller role:
+  * **Document Owners**: View personal document event streams with action badges, timestamps, and safe metadata.
+  * **Administrators**: Global activity stream, multi-dimensional filters, pagination controls, and an interactive **Cryptographic Chain Health Card** displaying live verification status.
+* **Honest Dashboard**: UI explicitly discloses that the in-database cryptographic hash chain provides internal tamper-evidence and does **not** claim external or hardware-grade WORM storage.
+
+---
+
+## What Is Explicitly Not Built Yet (Phase 8 Status)
 To maintain total transparency and avoid false security assumptions, the following features are **intentionally not built** in this phase and are clearly disclosed in the UI:
-* ❌ **Document Content Replacement**: In-place binary payload replacement or file revision swapping.
-* ❌ **Permanent Cryptographic Deletion**: Hard physical file deletion or cryptographic shredding from storage media.
-* ❌ **Bulk Document Management**: Batch download, bulk export, or multi-select deletion.
-* ❌ **Public Sharing Links**: Anonymous or time-expiring external web links.
-* ❌ **Admin Activity Dashboard**: System-wide compliance audit views and multi-tenant admin dashboards.
+* ❌ **Bulk Audit Export**: CSV/JSON bulk exfiltration or automated export pipelines.
+* ❌ **Permanent Cryptographic Purge**: Hard deletion or cryptographic shredding of historical audit records.
+* ❌ **Public Audit Links**: Unauthenticated or token-based external access to audit trails.
+* ❌ **User Directory Browsing**: Searchable user lists, autocompletion, or user enumeration.
+* ❌ **AI Features / Automated Summarization**: LLM-based audit log analysis or predictive analytics.
+* ❌ **Hardware WORM-Grade Storage**: External write-once media or cloud hardware-anchored audit immutability.
+
 
