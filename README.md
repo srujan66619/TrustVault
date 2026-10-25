@@ -7,7 +7,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%7C%20Postgres%20%7C%20Storage-3ECF8E?logo=supabase)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Live app:** [TrustVault on Vercel](https://trust-vault-9zngha0zs-darkcaptian.vercel.app/)  
+**Live app:** [TrustVault on Vercel](https://trust-vault-seven-liard.vercel.app/)
 **Repository:** [github.com/srujan66619/TrustVault](https://github.com/srujan66619/TrustVault)
 
 ## Why TrustVault?
