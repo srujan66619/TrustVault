@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { signIn, signUp } from './actions';
 import Link from 'next/link';
+import { PasswordInput } from './PasswordInput';
 
 async function LoginContent({
   searchParams,
@@ -12,8 +13,8 @@ async function LoginContent({
   const message = params?.message;
 
   return (
-    <div className="max-w-md mx-auto py-12 px-4 sm:px-6">
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-md space-y-6">
+    <div className="max-w-md mx-auto py-12 px-4 sm:px-6 stagger-1">
+      <div className="glass-panel rounded-2xl p-8 space-y-6">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-400">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
@@ -22,19 +23,20 @@ async function LoginContent({
           <h1 className="text-2xl font-bold tracking-tight text-white">
             Sign In to TrustVault
           </h1>
-          <p className="text-xs text-slate-400">
+          <div className="heading-accent-line mx-auto mt-2" />
+          <p className="text-xs text-slate-400 pt-1">
             Server-side authentication verifying live session and database profile status.
           </p>
         </div>
 
         {errorMsg && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 animate-in fade-in duration-200">
             {errorMsg}
           </div>
         )}
 
         {message && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300 animate-in fade-in duration-200">
             {message}
           </div>
         )}
@@ -54,7 +56,7 @@ async function LoginContent({
               required
               autoComplete="email"
               placeholder="user@example.com"
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="input-glass w-full rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 transition-all"
             />
           </div>
 
@@ -65,14 +67,12 @@ async function LoginContent({
             >
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               required
               autoComplete="current-password"
               placeholder="••••••••••••"
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             />
           </div>
 
@@ -80,14 +80,14 @@ async function LoginContent({
             <button
               formAction={signIn}
               type="submit"
-              className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all cursor-pointer"
+              className="btn-lift w-full rounded-lg bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/35 transition-all cursor-pointer"
             >
               Sign In
             </button>
             <button
               formAction={signUp}
               type="submit"
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+              className="btn-lift w-full rounded-lg border border-slate-700/80 bg-slate-800/60 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white hover:border-cyan-500/30 transition-all cursor-pointer"
             >
               Create Account
             </button>

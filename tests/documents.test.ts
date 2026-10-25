@@ -23,6 +23,7 @@ import {
   PATCH as updateMetadataRoute,
   DELETE as deleteDocumentRoute,
 } from '../src/app/api/documents/[id]/route';
+import { GET as getDocumentsRoute } from '../src/app/api/documents/route';
 import { createClient, type User, type SupabaseClient } from '@supabase/supabase-js';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL =
@@ -1154,6 +1155,99 @@ describe('Phase 7: Secure Document Dashboard, Metadata Management & Soft Deletio
       const res = await deleteDocumentRoute(req, { params: Promise.resolve({ id: docId }) });
       expect(res.status).toBe(404);
       expect(deleteRpcSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('8. Authenticated Viewer Document Listing & Anti-IDOR (200 Empty Result)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('proves GET /api/documents returns 200 and empty list [] for authenticated viewer with zero accessible documents', async () => {
+      const viewerId = '75856f30-9dc1-44fb-b25e-c90302ea0b4a';
+
+      vi.spyOn(sessionModule, 'requireAuth').mockResolvedValue({
+        user: { id: viewerId, email: 'viewer@trustvault.local' } as unknown as User,
+        profile: {
+          id: viewerId,
+          role: 'VIEWER',
+          status: 'ACTIVE',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        isActive: true,
+      });
+
+      vi.spyOn(adminModule, 'createAdminClient').mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { status: 'ACTIVE' },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        rpc: vi.fn().mockImplementation((fn: string, args: Record<string, unknown>) => {
+          if (fn === 'list_accessible_documents') {
+            expect(args.p_user_id).toBe(viewerId);
+            return Promise.resolve({ data: [], error: null });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const req = new NextRequest('http://localhost:3000/api/documents');
+      const res = await getDocumentsRoute(req);
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json).toEqual({ documents: [] });
+    });
+
+    it('proves GET /api/documents enforces anti-IDOR by binding to authenticated session user ID and returns 200 with accessible list', async () => {
+      const viewerId = '75856f30-9dc1-44fb-b25e-c90302ea0b4a';
+
+      vi.spyOn(sessionModule, 'requireAuth').mockResolvedValue({
+        user: { id: viewerId, email: 'viewer@trustvault.local' } as unknown as User,
+        profile: {
+          id: viewerId,
+          role: 'VIEWER',
+          status: 'ACTIVE',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        isActive: true,
+      });
+
+      vi.spyOn(adminModule, 'createAdminClient').mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { status: 'ACTIVE' },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        rpc: vi.fn().mockImplementation((fn: string, args: Record<string, unknown>) => {
+          if (fn === 'list_accessible_documents') {
+            // Anti-IDOR assertion: always uses session user ID, never caller override
+            expect(args.p_user_id).toBe(viewerId);
+            return Promise.resolve({ data: [], error: null });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      } as unknown as SupabaseClient);
+
+      const req = new NextRequest('http://localhost:3000/api/documents?ownerFilter=all');
+      const res = await getDocumentsRoute(req);
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.documents).toEqual([]);
     });
   });
 });

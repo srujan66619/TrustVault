@@ -261,7 +261,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 space-y-8">
       {/* Dashboard Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6 stagger-1">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-400 mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
@@ -270,13 +270,14 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
           <h1 className="text-3xl font-extrabold tracking-tight text-white">
             Documents Dashboard
           </h1>
+          <div className="heading-accent-line mt-2 mb-1" />
           <p className="text-xs text-slate-400 mt-1">
             Server-side encrypted vault with centralized authorization, safe metadata editing, and tamper-evident audit logging.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-right">
+          <div className="rounded-xl border border-cyan-500/20 bg-slate-900/40 backdrop-blur-xl px-4 py-2 text-right shadow-lg shadow-cyan-950/20">
             <div className="text-[10px] uppercase font-mono text-slate-500">Security Context</div>
             <div className="text-xs font-mono font-medium text-slate-200">
               Role: <span className="text-cyan-400">{currentUser.role}</span> | Status: <span className="text-emerald-400">{currentUser.status}</span>
@@ -284,7 +285,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
           </div>
           <Link
             href="/account"
-            className="rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition-all"
+            className="btn-lift rounded-xl border border-slate-700/80 bg-slate-800/60 backdrop-blur-md px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700/80 hover:text-white hover:border-cyan-500/30 transition-all cursor-pointer"
           >
             Manage Permissions
           </Link>
@@ -294,7 +295,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
       {/* Global Alert / Feedback Banner */}
       {feedback && (
         <div
-          className={`p-4 rounded-xl border text-sm flex items-start justify-between gap-3 ${
+          className={`p-4 rounded-xl border text-sm flex items-start justify-between gap-3 animate-in fade-in duration-200 ${
             feedback.type === 'success'
               ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
               : 'border-red-500/40 bg-red-950/30 text-red-300'
@@ -321,9 +322,9 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
       {/* Grid Layout: Upload Panel + Filter Bar + Document List */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Upload Document Section */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-md space-y-5">
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+        <div className="lg:col-span-1 space-y-6 stagger-2">
+          <div className="glass-panel rounded-2xl p-6 space-y-5">
+            <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
               <span className="text-lg">📤</span>
               <h2 className="text-base font-bold text-white">Upload Document</h2>
             </div>
@@ -333,23 +334,54 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                 <label className="block text-xs font-mono text-slate-400 mb-1.5 uppercase tracking-wide">
                   Select File (Max 15MB)
                 </label>
-                <input
-                  id="vault-file-upload"
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.txt"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setUploadFile(file);
-                    if (file && !uploadDisplayName) {
-                      setUploadDisplayName(file.name.replace(/\.[^/.]+$/, ''));
-                    }
-                  }}
-                  className="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/10 file:text-cyan-400 hover:file:bg-cyan-500/20 cursor-pointer border border-slate-800 rounded-xl p-2 bg-slate-950"
-                  required
-                />
-                <span className="text-[10px] text-slate-500 block mt-1">
-                  Permitted types: PDF, PNG, JPEG, Text. Magic-bytes verified server-side.
-                </span>
+                
+                {/* Interactive dropzone area with file-selected state */}
+                <div className="upload-dropzone rounded-xl p-4 text-center cursor-pointer relative group">
+                  <input
+                    id="vault-file-upload"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.txt"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setUploadFile(file);
+                      if (file && !uploadDisplayName) {
+                        setUploadDisplayName(file.name.replace(/\.[^/.]+$/, ''));
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                    required
+                  />
+                  {uploadFile ? (
+                    <div className="flex items-center justify-between gap-3 text-left">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-sm font-bold shrink-0">
+                          ✓
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-slate-100 truncate" title={uploadFile.name}>
+                            {uploadFile.name}
+                          </p>
+                          <p className="text-[10px] font-mono text-slate-500">
+                            {formatBytes(uploadFile.size)}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline shrink-0">
+                        Change
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="py-2 space-y-1">
+                      <div className="text-cyan-400 text-sm font-semibold flex items-center justify-center gap-1.5 group-hover:scale-105 transition-transform">
+                        <span>⚡</span>
+                        <span>Click or Drag File Here</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500">
+                        PDF, PNG, JPEG, or TXT (magic-bytes cryptographically verified)
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -362,7 +394,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                   value={uploadDisplayName}
                   onChange={(e) => setUploadDisplayName(e.target.value)}
                   placeholder="e.g. Q3 Financial Statement"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
+                  className="input-glass w-full rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 transition-all"
                 />
               </div>
 
@@ -373,7 +405,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                 <select
                   value={uploadCategory}
                   onChange={(e) => setUploadCategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors capitalize"
+                  className="input-glass w-full rounded-xl px-3.5 py-2 text-xs text-white transition-all capitalize"
                 >
                   {CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -386,7 +418,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
               <button
                 type="submit"
                 disabled={isUploading || !uploadFile}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-xs font-bold text-white shadow-lg hover:from-cyan-400 hover:to-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="btn-lift w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/35 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isUploading ? 'Securing & Uploading...' : 'Upload to Secure Vault'}
               </button>
@@ -394,7 +426,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
           </div>
 
           {/* Vault Integrity Controls */}
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-5 space-y-3 text-xs text-slate-400">
+          <div className="glass-panel rounded-2xl p-5 space-y-3 text-xs text-slate-400">
             <div className="font-semibold text-slate-300 font-mono text-[11px] uppercase tracking-wider flex items-center gap-1.5">
               <span>🛡️</span> Vault Integrity Controls
             </div>
@@ -420,9 +452,9 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
         </div>
 
         {/* Right Column: Search & Filter Bar + Document Catalog */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 stagger-3">
           {/* Filter Bar Controls */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-xl backdrop-blur-md space-y-4">
+          <div className="glass-panel rounded-2xl p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {/* Search query */}
               <div className="sm:col-span-2 md:col-span-1">
@@ -433,7 +465,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Filter by title..."
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                  className="input-glass w-full rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-600 transition-all"
                 />
               </div>
 
@@ -443,7 +475,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 capitalize"
+                  className="input-glass w-full rounded-xl px-3 py-1.5 text-xs text-white transition-all capitalize"
                 >
                   <option value="">All Categories</option>
                   {CATEGORIES.map((cat) => (
@@ -460,7 +492,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                 <select
                   value={ownerFilter}
                   onChange={(e) => setOwnerFilter(e.target.value as 'all' | 'mine' | 'shared')}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  className="input-glass w-full rounded-xl px-3 py-1.5 text-xs text-white transition-all"
                 >
                   <option value="all">All Accessible</option>
                   <option value="mine">Owned by Me</option>
@@ -477,7 +509,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                   type="date"
                   value={createdAfter}
                   onChange={(e) => setCreatedAfter(e.target.value)}
-                  className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500"
+                  className="input-glass rounded-lg px-2 py-1 text-[11px] text-slate-200 transition-all"
                   title="Created After"
                 />
                 <span className="text-slate-500 text-[10px]">to</span>
@@ -485,7 +517,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                   type="date"
                   value={createdBefore}
                   onChange={(e) => setCreatedBefore(e.target.value)}
-                  className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500"
+                  className="input-glass rounded-lg px-2 py-1 text-[11px] text-slate-200 transition-all"
                   title="Created Before"
                 />
               </div>
@@ -511,8 +543,8 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
           {/* Document Catalog Results */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 font-mono">
-                Accessible Documents ({documents.length})
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-2">
+                <span>Accessible Documents ({documents.length})</span>
               </h2>
               {loading && (
                 <span className="text-xs font-mono text-cyan-400 animate-pulse flex items-center gap-1.5">
@@ -523,16 +555,16 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
             </div>
 
             {error && (
-              <div className="p-4 rounded-xl border border-red-500/40 bg-red-950/30 text-xs text-red-300">
+              <div className="p-4 rounded-xl border border-red-500/40 bg-red-950/30 text-xs text-red-300 animate-in fade-in duration-200">
                 {error}
               </div>
             )}
 
             {!loading && documents.length === 0 && (
-              <div className="rounded-2xl border border-slate-800/80 bg-slate-900/30 p-12 text-center space-y-3">
-                <span className="text-3xl block">📁</span>
+              <div className="glass-panel rounded-2xl p-12 text-center space-y-3">
+                <span className="text-3xl block empty-glow">📁</span>
                 <h3 className="text-base font-bold text-slate-300">No Documents Found</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
                   {search || selectedCategory || ownerFilter !== 'all' || createdAfter || createdBefore
                     ? 'No accessible documents match your active filter criteria. Try resetting filters.'
                     : 'Your vault is currently empty. Upload your first document using the panel on the left.'}
@@ -549,7 +581,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                 return (
                   <div
                     key={doc.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg backdrop-blur-md hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="glass-panel rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -594,7 +626,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                       <a
                         href={`/api/documents/${doc.id}/download`}
                         download
-                        className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+                        className="btn-lift rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
                       >
                         <span>⬇️</span> Download
                       </a>
@@ -603,7 +635,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                       {doc.isOwner && (
                         <Link
                           href={`/activity?documentId=${doc.id}`}
-                          className="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+                          className="btn-lift rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
                           title="View document audit history"
                         >
                           <span>📜</span> History
@@ -615,7 +647,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                         <button
                           type="button"
                           onClick={() => openEditModal(doc)}
-                          className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all cursor-pointer"
+                          className="btn-lift rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all cursor-pointer"
                           title="Edit safe metadata (Title and Category)"
                         >
                           ✏️ Edit
@@ -627,7 +659,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                         <button
                           type="button"
                           onClick={() => setDeletingDoc(doc)}
-                          className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
+                          className="btn-lift rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
                           title="Soft-delete document"
                         >
                           🗑️ Delete
@@ -644,9 +676,9 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
 
       {/* Edit Metadata Modal */}
       {editingDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-800/90 bg-slate-900/90 backdrop-blur-2xl p-6 shadow-[0_16px_48px_rgba(0,0,0,0.6)] space-y-5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>✏️</span> Edit Metadata
               </h3>
@@ -669,7 +701,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                   maxLength={255}
                   value={editDisplayName}
                   onChange={(e) => setEditDisplayName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full rounded-xl border border-slate-800/80 bg-slate-950/70 px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all"
                   required
                 />
               </div>
@@ -681,7 +713,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                 <select
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 capitalize"
+                  className="w-full rounded-xl border border-slate-800/80 bg-slate-950/70 px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all capitalize"
                 >
                   {CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -699,7 +731,7 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
                 <button
                   type="button"
                   onClick={() => setEditingDoc(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-700 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                  className="px-4 py-2 rounded-xl border border-slate-700/80 text-xs font-medium text-slate-300 hover:bg-slate-800"
                 >
                   Cancel
                 </button>
@@ -718,8 +750,8 @@ export function DocumentDashboard({ currentUser }: { currentUser: CurrentUser })
 
       {/* Soft Delete Confirmation Modal */}
       {deletingDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-slate-900 p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-slate-900/90 backdrop-blur-2xl p-6 shadow-[0_16px_48px_rgba(0,0,0,0.6)] space-y-5 animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-red-400 flex items-center gap-2">
                 <span>🗑️</span> Confirm Soft Deletion

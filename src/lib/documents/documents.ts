@@ -1,4 +1,5 @@
 import 'server-only';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAuditEvent, AuditLoggingError } from '@/lib/audit/audit';
 import { authorize } from '@/lib/authorization/authorize';
@@ -207,9 +208,23 @@ export async function listAccessibleDocuments(
   limitParam = 50,
   offsetParam = 0,
   clientIpParam?: string | null,
-  userAgentParam?: string | null
+  userAgentParam?: string | null,
+  supabaseClient?: SupabaseClient
 ): Promise<DocumentRecord[]> {
-  const adminClient = createAdminClient();
+  let client = supabaseClient;
+  if (!client) {
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        client = createAdminClient();
+      } catch {
+        // Fall back to server session client
+      }
+    }
+    if (!client) {
+      const { createClient } = await import('@/lib/supabase/server');
+      client = await createClient();
+    }
+  }
 
   let search: string | null = null;
   let category: string | null = null;
@@ -241,7 +256,7 @@ export async function listAccessibleDocuments(
   }
 
   // 1. Verify user profile status from database
-  const { data: profile } = await adminClient
+  const { data: profile } = await client
     .from('profiles')
     .select('status')
     .eq('id', userId)
@@ -264,7 +279,7 @@ export async function listAccessibleDocuments(
   }
 
   // 2. In-Database Query Filtering (Enforced inside PostgreSQL before records are fetched)
-  const { data, error } = await adminClient.rpc('list_accessible_documents', {
+  const { data, error } = await client.rpc('list_accessible_documents', {
     p_user_id: userId,
     p_search: search && search.trim() !== '' ? search.trim() : null,
     p_category: category && category.trim() !== '' ? category.trim() : null,

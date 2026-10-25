@@ -153,6 +153,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ documents });
   } catch (err) {
+    console.error('GET /api/documents error:', err);
     if (err instanceof AuthenticationError) {
       const status = err.code === 'ACCOUNT_DISABLED' ? 403 : 401;
       if (err.userId) {

@@ -16,9 +16,9 @@ async function AccountContent() {
   const { user, profile } = session;
 
   return (
-    <div className="max-w-2xl mx-auto py-10 space-y-8">
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 shadow-xl backdrop-blur-md space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-6">
+    <div className="max-w-2xl mx-auto py-10 space-y-8 stagger-1">
+      <div className="glass-panel rounded-2xl p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-6">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400 mb-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -27,7 +27,8 @@ async function AccountContent() {
             <h1 className="text-2xl font-bold tracking-tight text-white">
               Account Overview
             </h1>
-            <p className="text-xs text-slate-400">
+            <div className="heading-accent-line mt-2" />
+            <p className="text-xs text-slate-400 mt-1">
               Verified server-side via Supabase Auth & live database profile.
             </p>
           </div>
@@ -35,7 +36,7 @@ async function AccountContent() {
           <form action={signOut}>
             <button
               type="submit"
-              className="rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
+              className="btn-lift rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
             >
               Sign Out
             </button>
@@ -49,7 +50,7 @@ async function AccountContent() {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-1">
+            <div className="glass-panel rounded-xl p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase text-slate-500">
                 User ID (UUID)
               </span>
@@ -58,7 +59,7 @@ async function AccountContent() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-1">
+            <div className="glass-panel rounded-xl p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase text-slate-500">
                 Email Address
               </span>
@@ -67,7 +68,7 @@ async function AccountContent() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-1">
+            <div className="glass-panel rounded-xl p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase text-slate-500">
                 Database Role (profiles.role)
               </span>
@@ -85,7 +86,7 @@ async function AccountContent() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-1">
+            <div className="glass-panel rounded-xl p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase text-slate-500">
                 Account Status (profiles.status)
               </span>
@@ -113,7 +114,7 @@ async function AccountContent() {
         <OwnerSharingManager userRole={profile.role} />
 
         {/* System Architecture Status */}
-        <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 space-y-2">
+        <div className="rounded-xl border border-slate-800/80 bg-slate-950/50 backdrop-blur-md p-4 space-y-2">
           <div className="flex items-center gap-2 text-cyan-400 font-semibold text-xs">
             <span className="w-2 h-2 rounded-full bg-cyan-400" />
             Document Security Architecture

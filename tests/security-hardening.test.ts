@@ -348,4 +348,42 @@ describe('Phase 9: Final Security Hardening & Deployment Verification', () => {
       expect(exampleContent).toContain('NEXT_PUBLIC_SUPABASE_ANON_KEY=');
     });
   });
+
+  describe('5. Secure Password Visibility Control & Sign-In Form Hardening', () => {
+    it('verifies PasswordInput component enforces client-side accessibility and security invariants', () => {
+      const inputPath = path.resolve(process.cwd(), 'src/app/login/PasswordInput.tsx');
+      expect(fs.existsSync(inputPath)).toBe(true);
+
+      const content = fs.readFileSync(inputPath, 'utf8');
+      // Must be a client component
+      expect(content).toContain("'use client'");
+
+      // Button must strictly be type="button" to prevent form submission
+      expect(content).toContain('type="button"');
+
+      // Toggles strictly between password and text
+      expect(content).toContain("type={showPassword ? 'text' : 'password'}");
+
+      // Accessible dynamic aria-label
+      expect(content).toContain("aria-label={showPassword ? 'Hide password' : 'Show password'}");
+
+      // Preserves password manager auto-completion
+      expect(content).toContain('autoComplete');
+
+      // Does not contain any network fetch, telemetry, or external storage of credentials
+      expect(content).not.toContain('fetch(');
+      expect(content).not.toContain('localStorage');
+      expect(content).not.toContain('sessionStorage');
+      expect(content).not.toContain('console.log');
+    });
+
+    it('verifies login/page.tsx utilizes PasswordInput with server-side authentication', () => {
+      const loginPath = path.resolve(process.cwd(), 'src/app/login/page.tsx');
+      const loginContent = fs.readFileSync(loginPath, 'utf8');
+
+      expect(loginContent).toContain("import { PasswordInput } from './PasswordInput'");
+      expect(loginContent).toContain('<PasswordInput');
+      expect(loginContent).toContain('formAction={signIn}');
+    });
+  });
 });

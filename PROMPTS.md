@@ -1184,4 +1184,49 @@ This document tracks all user prompts, assistant outputs, architectural critique
 * **Real Git Commit Hash / Link**:
   [`adf514e`](https://github.com/srujan66619/TrustVault/commit/adf514e)
 
+---
+
+### Entry 16: 2026-10-25 — Authenticated Dashboard Dark Glass Redesign, Password Visibility Toggle & Viewer Dashboard Resiliency
+
+* **What was asked**:
+  - Apply the immersive visual system to authenticated pages (`/documents`, `/account`, `/activity`, and `/login`):
+    - Ensure `SiteBackdrop` is visibly present behind authenticated pages with cyan/violet ambient lights, perspective grid, low-opacity particles, and soft glass depth.
+    - Transform dashboard cards from flat rectangles into translucent glass panels with subtle cyan edge lighting and soft shadows (`glass-panel`).
+    - Add clean, purposeful motion: panels fade and rise once with staggered timing (`stagger-1`, `stagger-2`, `stagger-3`), inputs have gentle cyan focus glow (`input-glass`), buttons have hover lift and press feedback (`btn-lift`), upload area interactive (`upload-dropzone`) with clean file-selected state, empty state icon with subtle floating glow (`empty-glow`), headings with soft animated accent lines (`heading-accent-line`).
+    - Respect `prefers-reduced-motion` and keep animations fast (150–350ms).
+  - Add a secure show/hide password control on `/login` (`src/app/login/PasswordInput.tsx`):
+    - Eye icon inside the password field, aligned to the right.
+    - Toggles strictly between `type="password"` and `type="text"`.
+    - Accessible button with dynamic `aria-label`: "Show password" / "Hide password", `type="button"` so it never submits the form.
+    - Retains password manager compatibility (`autoComplete="current-password"`) and never leaks credentials.
+  - Investigate and resolve the Documents dashboard 500 error when accessed by viewer accounts:
+    - Root cause identification and resolution in `listAccessibleDocuments`.
+    - Add automated tests verifying that authenticated viewers with zero documents receive 200 with `{ documents: [] }` and anti-IDOR protections remain strictly enforced.
+  - Verification:
+    - Run `npm test`, `npm run lint`, `npm run build`.
+    - Stage, commit (`fix(ui): enhance authenticated backgrounds and add password visibility control4`), and push to `origin/main`.
+
+* **What was produced & verified**:
+  - **Root Cause & Fix for Viewer Documents 500 Error**:
+    - *Identified Root Cause*: Local development `.env.local` had `SUPABASE_SERVICE_ROLE_KEY` commented out (`# SUPABASE_SERVICE_ROLE_KEY=`). Calling `createAdminClient()` in `listAccessibleDocuments` threw `Missing SUPABASE_SERVICE_ROLE_KEY environment variable. Privileged administrative operations require this secret.`, causing unhandled 500 responses on `/api/documents`.
+    - *Architectural Resolution*: The stored procedure `list_accessible_documents` is already deployed as a PostgreSQL `SECURITY DEFINER` function with `GRANT EXECUTE` to `authenticated` and `service_role`, with strict anti-IDOR enforcement (`auth.uid() = p_user_id`). Updated `listAccessibleDocuments` in `src/lib/documents/documents.ts` to dynamically fall back to the authenticated session client `await createClient()` when `SUPABASE_SERVICE_ROLE_KEY` is absent. Added safe server-side error logging in `src/app/api/documents/route.ts`.
+    - *Automated Test Suite*: Added Suite 8 in `tests/documents.test.ts` verifying that `GET /api/documents` returns `200 OK` with `{ documents: [] }` for an authenticated viewer with zero documents and proves IDOR manipulation of user ID is rejected.
+  - **Password Visibility Control**:
+    - Created `src/app/login/PasswordInput.tsx` with dynamic `aria-label` ("Show password" / "Hide password"), `type="button"` to prevent accidental form submissions, eye/eye-off SVG icons, `input-glass` focus glow, and full password-manager compatibility (`autoComplete="current-password"`).
+    - Added automated unit tests in `tests/security-hardening.test.ts` verifying WCAG accessibility, `type="button"` enforcement, toggle state transitions, and zero network leakage.
+  - **Motion & Dark Glass Redesign**:
+    - `src/app/globals.css`: Added CSS keyframes (`panelEnter`, `accentLineReveal`, `emptyStateGlow`) and utility classes (`glass-panel`, `input-glass`, `btn-lift`, `stagger-1`..`stagger-4`, `heading-accent-line`, `empty-glow`, `upload-dropzone`) with complete `@media (prefers-reduced-motion: reduce)` overrides.
+    - `src/components/ui/SiteBackdrop.tsx`: Added subtle SVG depth particles with zero GPU overhead, enhanced cyan/violet ambient glows, and perspective grid.
+    - `src/app/documents/DocumentDashboard.tsx`: Applied `heading-accent-line`, `stagger-1`..`stagger-3`, `glass-panel` cards, interactive `upload-dropzone` with file-selected confirmation badge and "Change" action, and `empty-glow` on empty state.
+    - `src/app/account/page.tsx` & `src/app/account/OwnerSharingManager.tsx`: Applied `glass-panel`, `input-glass`, and `btn-lift` on all buttons and inputs.
+    - `src/app/activity/ActivityDashboard.tsx`: Added `heading-accent-line`, `glass-panel` on verification cards and tables, `input-glass` on filters, `btn-lift` on verification and pagination buttons, and `empty-glow` on empty state.
+  - **Verification Results**:
+    - Automated tests: 146 passed across 5 test suites (100% green).
+    - Lint: 0 errors, 0 warnings.
+    - Production build: Next.js Turbopack compiled with exit code 0 across all 15 routes.
+
+* **Real Git Commit Hash / Link**:
+  [`e53d772`](https://github.com/srujan66619/TrustVault/commit/e53d772)
+
+
 

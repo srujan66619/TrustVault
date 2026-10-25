@@ -147,6 +147,7 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
             </span>
             Activity & Audit History
           </h1>
+          <div className="heading-accent-line mt-2" />
           <p className="mt-1 text-sm text-slate-400">
             Cryptographically chained tamper-evident event log. Server-mediated least privilege access.
           </p>
@@ -198,7 +199,7 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
           </div>
 
           {/* Admin Audit Chain Health Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-6 relative overflow-hidden">
+          <div className="glass-panel stagger-1 rounded-2xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.36)] hover:border-cyan-500/25 transition-all duration-300 relative overflow-hidden">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
                 <div className="flex items-center gap-3">
@@ -221,19 +222,19 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
 
                 {chainSummary && (
                   <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs font-mono">
-                    <div className="p-3 rounded-lg border border-slate-800 bg-slate-950">
+                    <div className="p-3 rounded-lg border border-slate-800/80 bg-slate-950/60 backdrop-blur-md">
                       <span className="text-slate-500 block">Verified Records</span>
                       <span className="text-slate-200 font-bold text-sm">
                         {chainSummary.totalVerified}
                       </span>
                     </div>
-                    <div className="p-3 rounded-lg border border-slate-800 bg-slate-950">
+                    <div className="p-3 rounded-lg border border-slate-800/80 bg-slate-950/60 backdrop-blur-md">
                       <span className="text-slate-500 block">Status</span>
                       <span className={chainSummary.isValid ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                         {chainSummary.isValid ? 'Unbroken Chain' : `Failed at seq #${chainSummary.failedAtSequence}`}
                       </span>
                     </div>
-                    <div className="p-3 rounded-lg border border-slate-800 bg-slate-950 col-span-2 sm:col-span-1">
+                    <div className="p-3 rounded-lg border border-slate-800/80 bg-slate-950/60 backdrop-blur-md col-span-2 sm:col-span-1">
                       <span className="text-slate-500 block">Verified At</span>
                       <span className="text-slate-300">
                         {new Date(chainSummary.lastVerifiedAt).toLocaleTimeString()}
@@ -253,7 +254,7 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
                 <button
                   onClick={handleVerifyChain}
                   disabled={verifyingChain}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-cyan-500/40 bg-cyan-600/20 text-cyan-300 hover:bg-cyan-600/30 text-xs font-mono font-medium transition-all shadow-lg shadow-cyan-900/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="btn-lift w-full sm:w-auto px-5 py-2.5 rounded-xl border border-cyan-500/40 bg-cyan-600/20 text-cyan-300 hover:bg-cyan-600/30 text-xs font-mono font-medium transition-all shadow-lg shadow-cyan-900/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {verifyingChain ? (
                     <>
@@ -281,7 +282,7 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
       )}
 
       {/* Filter Bar */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-md p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="glass-panel stagger-2 rounded-2xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-xl p-4 shadow-[0_8px_32px_rgba(0,0,0,0.36)] hover:border-cyan-500/20 transition-all duration-300 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs font-mono text-slate-400 mb-1.5">Action Filter</label>
           <select
@@ -290,7 +291,7 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
               setActionFilter(e.target.value);
               setPage(0);
             }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+            className="input-glass w-full rounded-lg border border-slate-700/80 bg-slate-950/70 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all"
           >
             <option value="ALL">All Actions</option>
             <option value="READ">READ</option>
@@ -312,7 +313,7 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
               setResultFilter(e.target.value);
               setPage(0);
             }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+            className="input-glass w-full rounded-lg border border-slate-700/80 bg-slate-950/70 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all"
           >
             <option value="ALL">All Results</option>
             <option value="SUCCESS">SUCCESS</option>
@@ -331,13 +332,13 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
               setDocumentIdFilter(e.target.value);
               setPage(0);
             }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+            className="input-glass w-full rounded-lg border border-slate-700/80 bg-slate-950/70 px-3 py-2 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all"
           />
         </div>
       </div>
 
       {/* Activity Table */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md overflow-hidden">
+      <div className="glass-panel stagger-3 rounded-2xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.36)] overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-12">
             <div className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent mb-3" />
@@ -355,7 +356,7 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
           </div>
         ) : activities.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-12 h-12 mx-auto rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 mb-3">
+            <div className="empty-glow w-12 h-12 mx-auto rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 mb-3">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
@@ -423,14 +424,14 @@ export function ActivityDashboard({ currentUser }: ActivityDashboardProps) {
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0 || loading}
-              className="px-3 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 disabled:opacity-40 transition-colors"
+              className="btn-lift px-3 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 disabled:opacity-40 transition-colors cursor-pointer"
             >
               Previous
             </button>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={activities.length < pageSize || loading}
-              className="px-3 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 disabled:opacity-40 transition-colors"
+              className="btn-lift px-3 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 disabled:opacity-40 transition-colors cursor-pointer"
             >
               Next
             </button>
